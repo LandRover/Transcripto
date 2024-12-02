@@ -26,6 +26,12 @@ def main():
         "--temp_dir", type=str, default="/tmp", help="Directory for temporary files"
     )
     parser.add_argument(
+        "--language", type=str, default="en-US", help="Language code for transcription"
+    )
+    parser.add_argument(
+        "--force", action="store_true", help="Force reprocessing of all chunks (default is to skip existing chunks)"
+    )
+    parser.add_argument(
         "--summarize", action="store_true", help="Summarize the transcription output"
     )
     args = parser.parse_args()
@@ -39,7 +45,9 @@ def main():
 
     # Transcribe the audio
     logging.info("Starting transcription...")
-    transcription = transcribe_audio(mp3_path, args.temp_dir, chunk_size=args.chunk_size)
+    transcription = transcribe_audio(
+        mp3_path, args.temp_dir, language=args.language, chunk_size=args.chunk_size, force=args.force
+    )
 
     # Save transcription
     with open(args.output, "w", encoding="utf-8") as f:
