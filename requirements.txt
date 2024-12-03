@@ -2,3 +2,4 @@ openai
 pydub
 speechrecognition
 requests
+python-dotenv
