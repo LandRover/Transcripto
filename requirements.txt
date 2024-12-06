@@ -3,3 +3,5 @@ pydub
 speechrecognition
 requests
 python-dotenv
+tqdm
+mutagen

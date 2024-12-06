@@ -3,7 +3,6 @@ import logging
 import requests
 
 def download_mp3(url_or_path, temp_dir):
-    """Downloads or verifies the MP3 file."""
     if os.path.isfile(url_or_path):
         logging.info(f"Using local file: {url_or_path}")
         return url_or_path
@@ -19,11 +18,9 @@ def download_mp3(url_or_path, temp_dir):
         response.raise_for_status()
         with open(filename, "wb") as f:
             for chunk in response.iter_content(chunk_size=1024):
-                if chunk:
-                    f.write(chunk)
+                f.write(chunk)
         logging.info(f"Download completed: {filename}")
     except requests.RequestException as e:
         logging.error(f"Failed to download file: {e}")
         raise
-
     return filename

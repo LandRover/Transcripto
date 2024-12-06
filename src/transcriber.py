@@ -1,67 +1,141 @@
 import os
 import logging
+from tqdm import tqdm
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
 import speech_recognition as sr
+from concurrent.futures import ThreadPoolExecutor
 
-def transcribe_audio(mp3_path, temp_dir, language="en-US", chunk_size=1024, force=False):
+
+def transcribe_audio(
+    mp3_path, temp_dir, language="en-US", min_silence_len=1000, silence_thresh=-14, force=False
+):
     """
-    Transcribes an MP3 file into text with progress tracking, filenames including original file name and language,
-    and optionally skips creation of already existing WAV chunks.
+    Transcribes an MP3 file into text with chunk processing, logging, and error handling.
 
     Args:
         mp3_path (str): Path to the MP3 file.
-        temp_dir (str): Directory to store temporary chunk files.
-        language (str): Language code for transcription (e.g., 'he-IL' for Hebrew).
-        chunk_size (int): Not currently used but reserved for future audio handling configurations.
-        force (bool): If True, recreate all WAV chunks even if they exist.
-    """
-    audio = AudioSegment.from_mp3(mp3_path)
-    total_duration = len(audio)  # Total duration in milliseconds
-    original_filename = os.path.splitext(os.path.basename(mp3_path))[0]  # Extract base name without extension
-    language_code = language.replace("-", "_")  # Replace hyphen for file naming compatibility
+        temp_dir (str): Directory for temporary chunk files.
+        language (str): Language code for transcription.
+        min_silence_len (int): Minimum silence length to split audio (ms).
+        silence_thresh (int): Silence threshold relative to dBFS.
+        force (bool): Force reprocessing of existing chunks.
 
-    # Split the audio into chunks based on silence
+    Returns:
+        str: Final transcription text.
+    """
+    # Load audio
+    try:
+        audio = AudioSegment.from_mp3(mp3_path)
+    except Exception as e:
+        logging.error(f"Failed to load audio file: {e}")
+        return ""
+
+    original_filename = os.path.splitext(os.path.basename(mp3_path))[0]
+
+    # Split the audio into chunks
     logging.info("Splitting audio into chunks...")
-    logging.info(f"Loading file {original_filename} to memory...")
-    chunks = split_on_silence(
-        audio,
-        min_silence_len=1000,            # Minimum silence length in ms
-        silence_thresh=audio.dBFS - 14,  # Silence threshold
-        keep_silence=500                 # Keep some silence
-    )
-    logging.info(f"Audio split into {len(chunks)} chunks.")
+    try:
+        chunks = split_on_silence(
+            audio,
+            min_silence_len = min_silence_len,
+            silence_thresh = audio.dBFS + silence_thresh,
+            keep_silence = 500,
+        )
+    except Exception as e:
+        logging.error(f"Error splitting audio: {e}")
+        return ""
+    
+    if not chunks:
+        logging.error("No chunks detected. Check silence threshold and audio content.")
+        return ""
+
+    # Debug: Log chunk details
+    for i, chunk in enumerate(chunks, start=1):
+        logging.debug(f"Chunk {i}: Length={len(chunk)}ms, dBFS={chunk.dBFS}")
+
+    logging.info(f"Detected {len(chunks)} chunks for transcription.")
 
     recognizer = sr.Recognizer()
-    transcription = ""
+    transcription_results = {}
+    problematic_chunks = []
 
-    for i, chunk in enumerate(chunks):
-        chunk_id = i + 1
-        # Calculate progress as a percentage
-        processed_duration = sum(len(c) for c in chunks[:i])  # Sum of processed chunks
-        progress = (processed_duration / total_duration) * 100
+    def process_chunk(chunk_info):
+        """
+        Process a single chunk: save it as WAV, transcribe, and handle errors.
+        """
+        chunk_id, chunk = chunk_info
+        chunk_path = os.path.join(temp_dir, f"{original_filename}_chunk_{chunk_id}.wav")
 
-        # Define path for chunk WAV file
-        chunk_path = os.path.join(temp_dir, f"{original_filename}_{language_code}_chunk_{chunk_id}.wav")
-
-        # Check if chunk WAV file exists and skip creation if not forcing
+        # Skip chunk if already processed
         if not force and os.path.exists(chunk_path):
-            logging.info(f"Skipping WAV generation for chunk {chunk_id}/{len(chunks)} ({progress:.2f}% complete) - file exists.")
-        else:
-            logging.info(f"Generating WAV for chunk {chunk_id}/{len(chunks)} ({progress:.2f}% complete)")
+            logging.info(f"Skipping chunk {chunk_id}: already exists.")
+            return chunk_id, ""
+
+        # Export chunk to WAV format
+        try:
             chunk.export(chunk_path, format="wav")
+            logging.debug(f"Exported {chunk_path}: Length={len(chunk)}ms")
+        except Exception as e:
+            logging.error(f"Failed to export chunk {chunk_id}: {e}")
+            problematic_chunks.append(chunk_path)
+            return chunk_id, ""
 
-        # Transcribe the chunk
-        with sr.AudioFile(chunk_path) as source:
-            try:
-                audio_data = recognizer.record(source)
+        # Transcribe chunk
+        try:
+            # Load and process the audio file
+            with sr.AudioFile(chunk_path) as source:
+                audio_data = recognizer.record(source) # Record the entire audio
                 text = recognizer.recognize_google(audio_data, language=language)
-                transcription += text.strip() + "\n\n"
-            except sr.UnknownValueError:
-                logging.warning(f"Could not understand chunk {chunk_id}")
-            except sr.RequestError as e:
-                logging.error(f"API error for chunk {chunk_id}: {e}")
+                logging.debug(f"Chunk {chunk_path} -> Chunk_ID: {chunk_id} transcription: {text}")
+                return chunk_id, text.strip()
+        except sr.UnknownValueError:
+            logging.warning(f"Could not understand Chunk_ID: {chunk_path} -> {chunk_id}")
+            problematic_chunks.append(chunk_path)
+            return chunk_id, ""
+        except sr.RequestError as e:
+            logging.error(f"API request error for Chunk_ID: {chunk_path} -> {chunk_id}: {e}")
+            problematic_chunks.append(chunk_path)
+            return chunk_id, ""
 
-    # Log final progress
-    logging.info("Transcription completed.")
-    return transcription.strip()
+
+    # Process all chunks in parallel
+    try:
+        with ThreadPoolExecutor() as executor:
+            results = list(
+                tqdm(
+                    executor.map(process_chunk, enumerate(chunks, start=1)),
+                    total=len(chunks),
+                    desc="Processing Chunks",
+                )
+            )
+    except Exception as e:
+        logging.error(f"Error during chunk processing: {e}")
+        return ""
+    
+    # Collect results explicitly to avoid losing chunks
+    for chunk_id, text in results:
+        if text:
+            transcription_results[chunk_id] = text
+        else:
+            logging.warning(f"Chunk {chunk_id} returned empty transcription.")
+
+    # Ensure transcription results are sorted by chunk ID
+    sorted_results = [transcription_results[chunk_id] for chunk_id in sorted(transcription_results)]
+
+    # Combine transcribed text
+    if sorted_results:
+        transcription = "\n\n".join(sorted_results)
+        logging.info("Transcription successfully combined.")
+    else:
+        logging.warning("No transcriptions were successful. The output file will be empty.")
+        transcription = ""
+
+    # Log and save problematic chunks
+    if problematic_chunks:
+        problematic_file = os.path.join(temp_dir, "problematic_chunks.txt")
+        with open(problematic_file, "w", encoding="utf-8") as f:
+            f.writelines(f"{chunk}\n" for chunk in problematic_chunks)
+        logging.warning(f"Problematic chunks saved to {problematic_file}")
+
+    return transcription
