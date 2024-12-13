@@ -5,3 +5,6 @@ requests
 python-dotenv
 tqdm
 mutagen
+google-cloud-texttospeech
+openai-whisper
+gTTS

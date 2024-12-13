@@ -5,7 +5,6 @@ from openai import OpenAI
 
 GPT_MODEL = "gpt-4o-mini"
 
-
 def summarize_text_with_retry(text, retries=3, delay=2):
     """
     Summarizes the given text using OpenAI's GPT model with a focus on software R&D.
@@ -26,6 +25,7 @@ def summarize_text_with_retry(text, retries=3, delay=2):
             prompt = (f"I am a development manager developing software."
                         "\nThe attached text is a transcript of a podcast episode."
                         "\nHelp me summerize 6 points and 4 internal bullets in each of the essentials."
+                        "\nPlease keep the chronological order of the points as they apear in the original text."
                         "\nFocus on takeaways I could use in my organiation to improve my teams."
                         "\nBe detailed, explicit and clear in the internal bullet points, not to general as it tends to be."
                         "\nRespond in Hebrew."
@@ -35,7 +35,7 @@ def summarize_text_with_retry(text, retries=3, delay=2):
             response = client.chat.completions.create(
                 model = GPT_MODEL,
                 max_tokens = 1024,
-                temperature = 0.5,
+                temperature = 0.1,
                 messages = [
                     {"role": "system", "content": "You are a technical expert specializing in mostly in backend development."},
                     {"role": "user", "content": (
