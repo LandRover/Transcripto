@@ -43,7 +43,7 @@ def main():
         title = extract_filename(audio_url)
         metadata = fetch_audio_metadata(audio_url)
 
-        transcription = process_transcription(
+        transcription_text = process_transcription(
             audio_url,
             args.temp_dir,
             title,
@@ -57,10 +57,14 @@ def main():
 
         summary = None
         if args.summarize:
-            summary = process_summarization(transcription, args.force)
+            summary_text = process_summarization(
+                transcription_text,
+                title,
+                args.force
+            )
 
         print(f"Metadata: {metadata}")
-        print(f"Transcription saved. {'Summary saved.' if summary else ''}")
+        print(f"Transcription saved. {'Summary saved.' if summary_text else ''}")
 
     except Exception as e:
         print(f"Error: {e}")

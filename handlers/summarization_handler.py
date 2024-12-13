@@ -5,11 +5,11 @@ from services.openai_service import summarize_text_with_retry
 from utils.file_utils import save_to_file, get_output_file
 
 
-def process_summarization(transcription, force=False):
-    logging.info("Starting summarization...")
+def process_summarization(transcription, title, force=False):
+    logging.info(f"Starting summarization {title}...")
     start_time = time.time()
 
-    base_filename = "summary"
+    base_filename = f"{title}_summary"
     output_file = get_output_file(base_filename, "txt")
 
     if not force and os.path.exists(output_file):

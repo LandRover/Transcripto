@@ -9,7 +9,9 @@ def process_transcription(
 ):
     start_time = time.time()
     logging.info(f"Starting transcription using {transcript_engine} engine...")
-    output_file = get_output_file(title + "_" + transcript_engine + "_transcript", "txt")
+    
+    base_filename = f"{title}_{transcript_engine}_transcript"
+    output_file = get_output_file(base_filename, "txt")
 
     if not force and os.path.exists(output_file):
         logging.info(f"Raw transcription file already exists: {output_file}, using it.")
