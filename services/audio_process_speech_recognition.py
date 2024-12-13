@@ -12,7 +12,7 @@ import speech_recognition as sr
 from concurrent.futures import ThreadPoolExecutor
 
 
-def transcribe_audio(
+def transcribe_audio_speech_recognition(
     mp3_path, temp_dir, title, language="en-US", min_silence_len=1000, silence_thresh=-14, force=False
 ):
     """

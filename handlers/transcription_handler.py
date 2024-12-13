@@ -1,7 +1,8 @@
 import os
 import logging
 import time
-from services.audio_processing import transcribe_audio
+from services.audio_process_speech_recognition import transcribe_audio_speech_recognition
+from services.audio_process_wisper import transcribe_audio_wisper
 from utils.file_utils import save_to_file, get_output_file
 
 def process_transcription(
@@ -18,13 +19,21 @@ def process_transcription(
         with open(output_file, "r", encoding="utf-8") as f:
             return f.read()
 
-    transcription_output_text = transcribe_audio(
+
+    #transcription_output_text = transcribe_audio_speech_recognition(
+    #    audio_url,
+    #    temp_dir,
+    #    title,
+    #    language,
+    #    min_silence_len,
+    #    silence_thresh,
+    #    force
+    #)
+
+    transcription_output_text = transcribe_audio_wisper(
         audio_url,
         temp_dir,
         title,
-        language,
-        min_silence_len,
-        silence_thresh,
         force
     )
 
