@@ -9,7 +9,7 @@ def process_transcription(
 ):
     start_time = time.time()
     logging.info(f"Starting transcription using {transcript_engine} engine...")
-    
+
     base_filename = f"{title}_{transcript_engine}_transcript"
     output_file = get_output_file(base_filename, "txt")
 
@@ -21,6 +21,7 @@ def process_transcription(
     transcription_output_text = transcribe_audio(
         audio_url,
         temp_dir,
+        title,
         language,
         min_silence_len,
         silence_thresh,

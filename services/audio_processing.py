@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 
 def transcribe_audio(
-    mp3_path, temp_dir, language="en-US", min_silence_len=1000, silence_thresh=-14, force=False
+    mp3_path, temp_dir, title, language="en-US", min_silence_len=1000, silence_thresh=-14, force=False
 ):
     """
     Transcribes an MP3 file into text with chunk processing, logging, and error handling.
@@ -36,7 +36,6 @@ def transcribe_audio(
         logging.error(f"Failed to load audio file: {e}")
         return ""
 
-    original_filename = os.path.splitext(os.path.basename(mp3_path))[0]
 
     # Split the audio into chunks
     logging.info("Splitting audio into chunks...")
@@ -50,10 +49,12 @@ def transcribe_audio(
     except Exception as e:
         logging.error(f"Error splitting audio: {e}")
         return ""
-    
+
+
     if not chunks:
         logging.error("No chunks detected. Check silence threshold and audio content.")
         return ""
+
 
     # Debug: Log chunk details
     for i, chunk in enumerate(chunks, start=1):
@@ -61,30 +62,33 @@ def transcribe_audio(
 
     logging.info(f"Detected {len(chunks)} chunks for transcription.")
 
+
     recognizer = sr.Recognizer()
     transcription_results = {}
     problematic_chunks = []
+
 
     def process_chunk(chunk_info):
         """
         Process a single chunk: save it as WAV, transcribe, and handle errors.
         """
         chunk_id, chunk = chunk_info
-        chunk_path = os.path.join(temp_dir, f"{original_filename}_chunk_{chunk_id}.wav")
+        chunk_path = os.path.join(temp_dir, f"{title}_chunk_{chunk_id}.wav")
 
-        # Skip chunk if already processed
-        if not force and os.path.exists(chunk_path):
-            logging.info(f"Skipping chunk {chunk_id}: already exists.")
-            return chunk_id, ""
 
         # Export chunk to WAV format
         try:
-            chunk.export(chunk_path, format="wav")
-            logging.debug(f"Exported {chunk_path}: Length={len(chunk)}ms")
+            # Skip export chunk if already processed, wav file exists
+            if force or not os.path.exists(chunk_path):
+                chunk.export(chunk_path, format="wav")
+                logging.debug(f"Exported {chunk_path}: Length={len(chunk)}ms")
+            else:
+                logging.info(f"Skipping chunk {chunk_id}: already exists.")
         except Exception as e:
             logging.error(f"Failed to export chunk {chunk_id}: {e}")
             problematic_chunks.append(chunk_path)
             return chunk_id, ""
+
 
         # Transcribe chunk
         try:
@@ -110,14 +114,15 @@ def transcribe_audio(
             results = list(
                 tqdm(
                     executor.map(process_chunk, enumerate(chunks, start=1)),
-                    total=len(chunks),
-                    desc="Processing Chunks",
+                    total = len(chunks),
+                    desc = "Processing Chunks",
                 )
             )
     except Exception as e:
         logging.error(f"Error during chunk processing: {e}")
         return ""
-    
+
+
     # Collect results explicitly to avoid losing chunks
     for chunk_id, text in results:
         if text:
@@ -125,8 +130,10 @@ def transcribe_audio(
         else:
             logging.warning(f"Chunk {chunk_id} returned empty transcription.")
 
+
     # Ensure transcription results are sorted by chunk ID
     sorted_results = [transcription_results[chunk_id] for chunk_id in sorted(transcription_results)]
+
 
     # Combine transcribed text
     if sorted_results:
@@ -135,6 +142,7 @@ def transcribe_audio(
     else:
         logging.warning("No transcriptions were successful. The output file will be empty.")
         transcription = ""
+
 
     # Log and save problematic chunks
     if problematic_chunks:
