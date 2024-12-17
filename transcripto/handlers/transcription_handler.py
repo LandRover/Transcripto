@@ -1,17 +1,18 @@
 import os
 import logging
 import time
-from services.audio_process_speech_recognition import transcribe_audio_speech_recognition
-from services.audio_process_wisper import transcribe_audio_wisper
-from utils.file_utils import save_to_file, get_output_file
+from transcripto.services.audio_transcriptor_speech_recognition import transcribe_audio_speech_recognition
+from transcripto.services.audio_transcriptor_wisper import transcribe_audio_wisper
+from transcripto.utils.file_utils import save_to_file, get_output_file
+from transcripto.utils.text import split_text_into_paragraphs
 
 def process_transcription(
-        audio_url, temp_dir, title, ext="mp3", transcript_engine="speech_recognition", language="en-US", min_silence_len=1000, silence_thresh=-14, force=False
+        audio_url, temp_dir, title, ext="mp3", transcript_model="speech_recognition", language="en-US", min_silence_len=1000, silence_thresh=-14, force=False
 ):
     start_time = time.time()
-    logging.info(f"Starting transcription using {transcript_engine} engine...")
+    logging.info(f"Starting transcription using {transcript_model} model...")
 
-    base_filename = f"{title}_{transcript_engine}_transcript"
+    base_filename = f"{title}_{transcript_model}_transcript"
     output_file = get_output_file(base_filename, "txt")
 
     if not force and os.path.exists(output_file):
@@ -25,8 +26,6 @@ def process_transcription(
     #    temp_dir,
     #    title,
     #    language,
-    #    min_silence_len,
-    #    silence_thresh,
     #    force
     #)
 
@@ -34,11 +33,16 @@ def process_transcription(
         audio_url,
         temp_dir,
         title,
+        language,
         force
     )
 
     logging.info(f"Transcription completed in {time.time() - start_time:.2f} seconds.")
-    save_to_file(output_file, transcription_output_text)
+
+    formatted_text = split_text_into_paragraphs(transcription_output_text)
+    
+    save_to_file(output_file, formatted_text)
+
     logging.info(f"Raw transcription saved to {output_file}")
 
-    return transcription_output_text
+    return formatted_text

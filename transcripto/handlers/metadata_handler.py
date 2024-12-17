@@ -18,7 +18,7 @@ def fetch_audio_metadata(filepath):
             "bitrate": audio.info.bitrate,  # Bitrate in kbps
             "channels": audio.info.channels,  # Number of audio channels
         }
-        logging.info(f"Metadata extracted for {filepath}: {metadata}")
+        
         return metadata
     except Exception as e:
         logging.error(f"Failed to extract metadata from {filepath}: {e}")

@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 
 def transcribe_audio_speech_recognition(
-    mp3_path, temp_dir, title, language="en-US", min_silence_len=1000, silence_thresh=-14, force=False
+    mp3_path, temp_dir, title, language="en-US", force=False, min_silence_len=1000, silence_thresh=-14
 ):
     """
     Transcribes an MP3 file into text with chunk processing, logging, and error handling.

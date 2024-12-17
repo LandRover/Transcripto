@@ -3,9 +3,9 @@ import time
 import logging
 from openai import OpenAI
 
-GPT_MODEL = "gpt-4o-mini"
 
-def summarize_text_with_retry(text, retries=3, delay=2):
+
+def summarize_text_with_retry(text, model="gpt-4o-mini", max_tokens=1024, temperature=0.1, retries=3, delay=2):
     """
     Summarizes the given text using OpenAI's GPT model with a focus on software R&D.
 
@@ -33,9 +33,9 @@ def summarize_text_with_retry(text, retries=3, delay=2):
                         "\n" + text)
 
             response = client.chat.completions.create(
-                model = GPT_MODEL,
-                max_tokens = 1024,
-                temperature = 0.1,
+                model = model,
+                max_tokens = max_tokens,
+                temperature = temperature,
                 messages = [
                     {"role": "system", "content": "You are a technical expert specializing in mostly in backend development."},
                     {"role": "user", "content": (

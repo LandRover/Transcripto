@@ -1,7 +1,7 @@
 import os
 import logging
 import requests
-from utils.file_utils import download_file
+from transcripto.utils.file_utils import download_file
 from urllib.parse import urlparse
 
 def validate_and_download(input_path, temp_dir):

@@ -4,7 +4,7 @@ import whisper
 
 
 def transcribe_audio_wisper(
-    mp3_path, temp_dir, title, force=False
+    mp3_path, temp_dir, title, language="en-US", force=False
 ):
     """
     Transcribes an MP3 file into text with wisper processing, logging, and error handling.
@@ -21,7 +21,7 @@ def transcribe_audio_wisper(
     # Load audio
     try:
         model = whisper.load_model("turbo")
-        result = model.transcribe(mp3_path)
+        result = model.transcribe(mp3_path, language="he", fp16=False, verbose=False)
         transcription = result["text"]
 
     except Exception as e:

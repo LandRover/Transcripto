@@ -9,8 +9,16 @@ def ensure_directories(directories):
 
 
 def save_to_file(file_path, content):
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(content)
+    if isinstance(content, bytes):
+        # Binary content: open in binary mode
+        with open(file_path, "wb") as f:
+            f.write(content)
+    elif isinstance(content, str):
+        # Text content: open in text mode
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(content)
+    else:
+        raise TypeError("Content must be of type 'str' or 'bytes'")
 
 
 def get_output_file(base_name, extension):
