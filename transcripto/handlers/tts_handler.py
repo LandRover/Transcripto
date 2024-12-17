@@ -1,7 +1,7 @@
 import os
 import logging
 import time
-from transcripto.services.tts_openai import tts_openai
+from transcripto.services.tts_openai import tts_gpt_openai, tts_tts1_openai
 from transcripto.services.tts_gtts import tts_gtts
 from transcripto.utils.file_utils import save_to_file, get_output_file
 
@@ -19,7 +19,7 @@ def process_tts(
         with open(output_file, "r", encoding="utf-8") as f:
             return f.read()
 
-    tts_output_mp3_bytes = tts_gtts(
+    tts_output_mp3_bytes = tts_gpt_openai(
         text,
         tts_model,
         voice,

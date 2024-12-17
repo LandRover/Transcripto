@@ -1,4 +1,3 @@
-import os
 import logging
 from google.cloud import texttospeech
 
@@ -8,7 +7,7 @@ def tts_google_texttospeech(text, tts_model="", voice="alloy", format="mp3", for
         synthesis_input = texttospeech.SynthesisInput(text)
         
         voice = texttospeech.VoiceSelectionParams(
-            language_code="he-IL", 
+            language_code = "he-IL", 
             ssml_gender = texttospeech.SsmlVoiceGender.FEMALE
         )
         
@@ -17,7 +16,7 @@ def tts_google_texttospeech(text, tts_model="", voice="alloy", format="mp3", for
         )
         
         response = client.synthesize_speech(
-            input=synthesis_input, voice=voice, audio_config=audio_config
+            input = synthesis_input, voice=voice, audio_config=audio_config
         )
 
         mp3_bytes = response.audio_content

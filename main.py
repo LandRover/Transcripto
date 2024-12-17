@@ -24,7 +24,7 @@ def main():
     parser.add_argument("--temp-dir", type=str, default="/tmp", help="Directory for temporary files")
     parser.add_argument("--output-dir", type=str, default="./output", help="Directory to save output files")
     parser.add_argument("--transcript_model", type=str, default="wisper", help="Transcription model")
-    parser.add_argument("--tts_model", type=str, default="gtts", help="text-to-speech model")
+    parser.add_argument("--tts_model", type=str, default="gpt-4o-audio-preview", help="text-to-speech model")
     parser.add_argument("--language", type=str, default="en-US", help="Language code for transcription")
     parser.add_argument("--force", action="store_true", help="Force recreation of output files")
     parser.add_argument("--summarize", action="store_true", help="Generate a summarized output file")
