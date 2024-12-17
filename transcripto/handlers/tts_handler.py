@@ -16,7 +16,7 @@ def process_tts(
 
     if not force and os.path.exists(output_file):
         logging.info(f"Raw text-to-speech file already exists: {output_file}, using it.")
-        with open(output_file, "r", encoding="utf-8") as f:
+        with open(output_file, "rb") as f:
             return f.read()
 
     tts_output_mp3_bytes = tts_gpt_openai(

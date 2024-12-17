@@ -1,8 +1,9 @@
 import os
 import logging
 
-TEMP_DIR = "/tmp"
+
 OUTPUT_DIR = "./output"
+TEMP_DIR = "./output/tmp"
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(message)s"
 
 def setup_logging(level):
