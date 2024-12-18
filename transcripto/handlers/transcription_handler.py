@@ -1,18 +1,17 @@
 import os
 import logging
 import time
-from transcripto.services.audio_transcriptor_speech_recognition import transcribe_audio_speech_recognition
-from transcripto.services.audio_transcriptor_wisper import transcribe_audio_wisper
+from transcripto.services.transcriptors.transcriptor_factory import TranscriptorFactory
 from transcripto.utils.file_utils import save_to_file, get_output_file
 from transcripto.utils.text import split_text_into_paragraphs
 
 def process_transcription(
-        audio_url, temp_dir, title, ext="mp3", transcript_model="speech_recognition", language="en-US", min_silence_len=1000, silence_thresh=-14, force=False
+        audio_url, temp_dir, title, ext="mp3", transcript_engine="speech_recognition", language="en-US", min_silence_len=1000, silence_thresh=-14, force=False
 ):
     start_time = time.time()
-    logging.info(f"Starting transcription using {transcript_model} model...")
+    logging.info(f"Starting transcription using {transcript_engine} model...")
 
-    base_filename = f"{title}_{transcript_model}_transcript"
+    base_filename = f"{title}_{transcript_engine}_transcript"
     output_file = get_output_file(base_filename, "txt")
 
     if not force and os.path.exists(output_file):
@@ -20,16 +19,9 @@ def process_transcription(
         with open(output_file, "r", encoding="utf-8") as f:
             return f.read()
 
-
-    #transcription_output_text = transcribe_audio_speech_recognition(
-    #    audio_url,
-    #    temp_dir,
-    #    title,
-    #    language,
-    #    force
-    #)
-
-    transcription_output_text = transcribe_audio_wisper(
+    # Select the transcriptor strategy
+    transcriptor = TranscriptorFactory.get_transcriptor(transcript_engine)
+    transcription_output_text = transcriptor.transcribe(
         audio_url,
         temp_dir,
         title,

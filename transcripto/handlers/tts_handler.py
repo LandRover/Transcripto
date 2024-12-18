@@ -1,17 +1,16 @@
 import os
 import logging
 import time
-from transcripto.services.tts_openai import tts_gpt_openai, tts_tts1_openai
-from transcripto.services.tts_gtts import tts_gtts
+from transcripto.services.text_to_speech.text_to_speech_factory import TextToSpeechFactory
 from transcripto.utils.file_utils import save_to_file, get_output_file
 
 def process_tts(
-        title, text, tts_model="gpt-4o-audio-preview", force=False, voice="alloy", format="mp3"
+        title, text, tts_engine="openai_gpt", tts_model="gpt-4o-audio-preview", force=False, voice="alloy", format="mp3"
 ):
     start_time = time.time()
-    logging.info(f"Starting TTS using {tts_model} model...")
+    logging.info(f"Starting TTS using {tts_engine} {tts_model} model...")
 
-    base_filename = f"{title}_{tts_model}_tts"
+    base_filename = f"{title}_{tts_engine}_{tts_model}_tts"
     output_file = get_output_file(base_filename, "mp3")
 
     if not force and os.path.exists(output_file):
@@ -19,7 +18,9 @@ def process_tts(
         with open(output_file, "rb") as f:
             return f.read()
 
-    tts_output_mp3_bytes = tts_gpt_openai(
+    # Select the tts strategy
+    tts = TextToSpeechFactory.get_tts(tts_engine)
+    tts_output_mp3_bytes = tts.generate_text_to_speech(
         text,
         tts_model,
         voice,

@@ -23,7 +23,10 @@ def main():
     parser.add_argument("--audio-ext", type=str, default="mp3", help="Default output audio ext, usually mp3")
     parser.add_argument("--temp-dir", type=str, default=TEMP_DIR, help="Directory for temporary files")
     parser.add_argument("--output-dir", type=str, default=OUTPUT_DIR, help="Directory to save output files")
-    parser.add_argument("--transcript_model", type=str, default="wisper", help="Transcription model")
+    parser.add_argument("--transcript_engine", type=str, default="wisper", help="Transcription model")
+    parser.add_argument("--summarization_engine", type=str, default="openai", help="summarization engine")
+    parser.add_argument("--summarization_model", type=str, default="gpt-4o-mini", help="summarization model")
+    parser.add_argument("--tts_engine", type=str, default="openai_gpt", help="text-to-speech engine")
     parser.add_argument("--tts_model", type=str, default="gpt-4o-audio-preview", help="text-to-speech model")
     parser.add_argument("--language", type=str, default="en-US", help="Language code for transcription")
     parser.add_argument("--force", action="store_true", help="Force recreation of output files")
@@ -47,7 +50,7 @@ def main():
             args.temp_dir,
             title,
             args.audio_ext,
-            args.transcript_model,
+            args.transcript_engine,
             language=args.language,
             force=args.force
         )
@@ -57,7 +60,8 @@ def main():
             summary_text = process_summarization(
                 transcription_text,
                 title,
-                args.transcript_model,
+                args.summarization_engine,
+                args.summarization_model,
                 args.force
             )
 
@@ -66,6 +70,7 @@ def main():
             tts = process_tts(
                 title,
                 summary_text,
+                args.tts_engine,
                 args.tts_model,
                 args.force,
             )

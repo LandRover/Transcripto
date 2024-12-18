@@ -1,15 +1,15 @@
 import os
 import time
 import logging
-from transcripto.services.openai_service import summarize_text_with_retry
+from transcripto.services.summarizer.summarizer_factory import SummarizerFactory
 from transcripto.utils.file_utils import save_to_file, get_output_file
 
 
-def process_summarization(transcription, title, transcript_model, force=False):
-    logging.info(f"Starting summarization {title}...")
+def process_summarization(text, title, summarizer_engine="openai", summarizer_model="gpt-4o-mini", force=False):
+    logging.info(f"Starting summarization {title} using {summarizer_engine}...")
     start_time = time.time()
 
-    base_filename = f"{title}_{transcript_model}_summary"
+    base_filename = f"{title}_{summarizer_engine}_{summarizer_model}_summary"
     output_file = get_output_file(base_filename, "txt")
 
     if not force and os.path.exists(output_file):
@@ -17,8 +17,19 @@ def process_summarization(transcription, title, transcript_model, force=False):
         with open(output_file, "r", encoding="utf-8") as f:
             return f.read()
 
-    summary = summarize_text_with_retry(transcription)
+    # Select the transcriptor strategy
+    summarizer = SummarizerFactory.get_summarizer(summarizer_engine)
+    summary_output_text = summarizer.summarize_text(
+        text,
+        summarizer_model,
+        max_tokens = 1024,
+        temperature = 0.1,
+        retries = 3,
+        delay = 2
+    )
+    
     logging.info(f"Summarization completed in {time.time() - start_time:.2f} seconds.")
-    save_to_file(output_file, summary)
+    save_to_file(output_file, summary_output_text)
     logging.info(f"Summary saved to {output_file}")
-    return summary
+
+    return summary_output_text
