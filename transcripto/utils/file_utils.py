@@ -25,15 +25,6 @@ def get_output_file(base_name, extension):
     return f"./output/{base_name}.{extension}"
 
 
-def download_file(url):
-    response = requests.get(url, stream=True)
-    file_path = f"./temp/{os.path.basename(url)}"
-    with open(file_path, "wb") as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            f.write(chunk)
-    return file_path
-
-
 def extract_filename(url):
     # Parse the URL
     parsed_url = urlparse(url)

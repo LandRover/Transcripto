@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from transcripto.handlers.tts_handler import process_tts
 from transcripto.handlers.transcription_handler import process_transcription
 from transcripto.handlers.summarization_handler import process_summarization
-from transcripto.handlers.download_handler import validate_and_download
+from transcripto.handlers.download_handler import process_download
 from transcripto.handlers.metadata_handler import fetch_audio_metadata
 from config import setup_logging, TEMP_DIR, OUTPUT_DIR
 from transcripto.utils.file_utils import ensure_directories, extract_filename
@@ -39,8 +39,8 @@ def main():
     ensure_directories([TEMP_DIR, OUTPUT_DIR])
 
     try:
-        audio_url = validate_and_download(args.http_audio_url, args.temp_dir)
-        title = extract_filename(audio_url)
+        title = extract_filename(args.http_audio_url)
+        audio_url = process_download(args.http_audio_url, title)
 
         metadata = fetch_audio_metadata(audio_url)
         logging.info(f"Metadata extracted from {audio_url}: {metadata}")
