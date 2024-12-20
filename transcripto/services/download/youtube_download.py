@@ -3,7 +3,6 @@ import io
 import re
 import os
 import yt_dlp
-from contextlib import redirect_stdout
 from pydub import AudioSegment
 
 from .download_base import DownloadBase
