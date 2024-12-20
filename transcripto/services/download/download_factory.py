@@ -1,4 +1,5 @@
 import re
+import logging
 from .url_download import URLDownload
 from .spotify_download import SpotifyDownload
 from .youtube_download import YoutubeDownload
@@ -17,5 +18,6 @@ class DownloadFactory:
     def get_download_engine(url):
         for pattern, download_cls in DownloadFactory.download_engines_mapping:
             if pattern.match(url):
+                logging.info(f"Detected pattern: {pattern}")
                 return download_cls()
         raise ValueError(f"Unsupported download URL: {url}")

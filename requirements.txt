@@ -8,4 +8,4 @@ mutagen
 google-cloud-texttospeech
 openai-whisper
 gTTS
-pytube
+yt_dlp

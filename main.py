@@ -1,9 +1,6 @@
 
 import logging
 import argparse
-import os
-import time
-import json
 from dotenv import load_dotenv
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor
