@@ -1,5 +1,6 @@
 import logging
 import io
+import re
 import os
 import yt_dlp
 from contextlib import redirect_stdout
@@ -9,8 +10,14 @@ from .download_base import DownloadBase
 
 
 class YoutubeDownload(DownloadBase):
+    def get_filename(self, url):
+        youtube_regex = r'(?:v=|\/)([0-9A-Za-z_-]{11})(?:[&?\/]|$)'
+        match = re.search(youtube_regex, url)
 
-    def download(self, url, title):
+        return match.group(1) if match else None
+
+
+    def download(self, url):
         output_directory = "/tmp/"
         output_filename_format = '%(id)s - %(title)s (%(uploader)s) (%(id)s) (%(upload_date)s).%(ext)s'
 

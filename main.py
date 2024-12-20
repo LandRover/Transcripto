@@ -8,9 +8,8 @@ from transcripto.handlers.tts_handler import process_tts
 from transcripto.handlers.transcription_handler import process_transcription
 from transcripto.handlers.summarization_handler import process_summarization
 from transcripto.handlers.download_handler import process_download
-from transcripto.handlers.metadata_handler import fetch_audio_metadata
 from config import setup_logging, TEMP_DIR, OUTPUT_DIR
-from transcripto.utils.file_utils import ensure_directories, extract_filename
+from transcripto.utils.file_utils import ensure_directories, extract_filename_from_url
 
 def main():
     load_dotenv()
@@ -36,16 +35,13 @@ def main():
     ensure_directories([TEMP_DIR, OUTPUT_DIR])
 
     try:
-        title = extract_filename(args.http_audio_url)
-        audio_url = process_download(args.http_audio_url, title)
-
-        metadata = fetch_audio_metadata(audio_url)
-        logging.info(f"Metadata extracted from {audio_url}: {metadata}")
+        file_title, audio_local_path, audio_metadata = process_download(args.http_audio_url)
+        logging.info(f"Metadata extracted from {audio_local_path}: {audio_metadata}")
 
         transcription_text = process_transcription(
-            audio_url,
+            audio_local_path,
             args.temp_dir,
-            title,
+            file_title,
             args.audio_ext,
             args.transcript_engine,
             language=args.language,
@@ -56,7 +52,7 @@ def main():
         if args.summarize:
             summary_text = process_summarization(
                 transcription_text,
-                title,
+                file_title,
                 args.summarization_engine,
                 args.summarization_model,
                 args.force
@@ -65,7 +61,7 @@ def main():
         tts = None
         if args.tts and args.summarize:
             tts = process_tts(
-                title,
+                file_title,
                 summary_text,
                 args.tts_engine,
                 args.tts_model,

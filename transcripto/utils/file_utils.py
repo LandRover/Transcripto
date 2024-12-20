@@ -25,7 +25,7 @@ def get_output_file(base_name, extension):
     return f"./output/{base_name}.{extension}"
 
 
-def extract_filename(url):
+def extract_filename_from_url(url):
     # Parse the URL
     parsed_url = urlparse(url)
 
