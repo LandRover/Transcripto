@@ -12,7 +12,7 @@ class ApplePodcastDownload(DownloadBase):
         
         return filename
     
-    def download(self, url):
+    def download(self, url: str, temp_path: Path):
         logging.info(f"ApplePodcastDownload starting download {url}...")
 
         try:
@@ -27,7 +27,7 @@ class ApplePodcastDownload(DownloadBase):
             if match:
                 mp3_path = match.group(1)
                 logging.info(f"Detected a url for a podcast episode {mp3_path}, Offloading to URLDownload")
-                mp3_content = url_downloader.download(mp3_path)
+                mp3_content = url_downloader.download(mp3_path, temp_path)
                 return mp3_content
             else:
                 logging.error(f"MP3 path could not be deleted from this podcast: {url}")
