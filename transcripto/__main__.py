@@ -1,3 +1,3 @@
-from .cli import main
+from .cli import cli_mode
 
-main()
+cli_mode()

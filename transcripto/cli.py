@@ -1,6 +1,6 @@
-
 import logging
 import argparse
+import os
 from dotenv import load_dotenv
 from transcripto.handlers.tts_handler import process_tts
 from transcripto.handlers.transcription_handler import process_transcription
@@ -8,12 +8,15 @@ from transcripto.handlers.summarization_handler import process_summarization
 from transcripto.handlers.download_handler import process_download
 from config import setup_logging, TEMP_DIR, OUTPUT_DIR
 from transcripto.utils.file_utils import ensure_directories
+from .telegram_bot import start_loop_bot
+import asyncio
 
-def main():
+
+def cli_mode():
     load_dotenv()
 
     parser = argparse.ArgumentParser(description="Audio Transcription Script with Improvements")
-    parser.add_argument("http_audio_url", type=str, help="URL or local path of the MP3 file")
+    parser.add_argument("--url", type=str, default="", help="URL or local path of the MP3 file")
     parser.add_argument("--audio-ext", type=str, default="mp3", help="Default output audio ext, usually mp3")
     parser.add_argument("--temp-dir", type=str, default=TEMP_DIR, help="Directory for temporary files")
     parser.add_argument("--output-dir", type=str, default=OUTPUT_DIR, help="Directory to save output files")
@@ -26,6 +29,7 @@ def main():
     parser.add_argument("--force", action="store_true", help="Force recreation of output files")
     parser.add_argument("--summarize", action="store_true", help="Generate a summarized output file")
     parser.add_argument("--tts", action="store_true", help="Generate a text-to-speech output file")
+    parser.add_argument("--telegram-bot", action="store_true", help="Run as telegram bot")
     parser.add_argument("--log-level", type=str, default="INFO", help="Set logging level (DEBUG, INFO, WARNING, ERROR)")
     args = parser.parse_args()
 
@@ -33,7 +37,19 @@ def main():
     ensure_directories([TEMP_DIR, OUTPUT_DIR])
 
     try:
-        file_title, audio_local_path, audio_metadata = process_download(args.http_audio_url)
+        if args.telegram_bot:
+            logging.info(f"Running in Telegram bot mode.")
+            TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+
+            try:
+                asyncio.run(start_loop_bot(TELEGRAM_BOT_TOKEN))
+            except RuntimeError:
+                import nest_asyncio
+                nest_asyncio.apply()
+                asyncio.run(start_loop_bot(TELEGRAM_BOT_TOKEN))
+            return
+
+        file_title, audio_local_path, audio_metadata = process_download(args.url)
         logging.info(f"Metadata extracted from {audio_local_path}: {audio_metadata}")
 
         transcription_text = process_transcription(
@@ -70,5 +86,3 @@ def main():
     except Exception as e:
         print(f"Error: {e}")
 
-if __name__ == "__main__":
-    main()
