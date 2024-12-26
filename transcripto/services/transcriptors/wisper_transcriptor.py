@@ -1,6 +1,9 @@
 import logging
 import whisper
+import ssl
 from .transcriptor_base import TranscriptorBase
+
+ssl._create_default_https_context = ssl._create_unverified_context
 
 class WhisperTranscriptor(TranscriptorBase):
     def transcribe(
