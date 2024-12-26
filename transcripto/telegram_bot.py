@@ -21,7 +21,16 @@ async def url_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     url = update.message.text
 
     status_update_message = await update.message.reply_text(f"Downloading {url}")
-    file_title, audio_local_path, audio_metadata = process_download(url)
+    
+    try:
+        file_title, audio_local_path, audio_metadata = process_download(url)
+    except Exception as e:
+        await context.bot.edit_message_text(
+            chat_id=status_update_message.chat_id,
+            message_id=status_update_message.message_id,
+            text=f"{e}"
+        )
+        return None
 
     # status update
     await context.bot.edit_message_text(

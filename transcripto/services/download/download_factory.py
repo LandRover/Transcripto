@@ -4,6 +4,7 @@ from .url_download import URLDownload
 from .spotify_download import SpotifyDownload
 from .youtube_download import YoutubeDownload
 from .apple_podcast_download import ApplePodcastDownload
+from .pocketcasts_download import PocketCastsDownload
 
 class DownloadFactory:
     # Mapping of patterns to download engine classes
@@ -11,7 +12,8 @@ class DownloadFactory:
         (re.compile(r'^https?://(open\.)?spotify\.com/.*'), SpotifyDownload),
         (re.compile(r'^https?://(www\.)?youtube\.com/.*'), YoutubeDownload),
         (re.compile(r'^https?://(podcasts\.)?apple\.com/.*'), ApplePodcastDownload),
-        (re.compile(r'^https?://.*'), URLDownload),  # Fallback for generic URLs
+        (re.compile(r'^https://pca\.st/episode/[a-f0-9\-]+$'), PocketCastsDownload),
+        (re.compile(r'^https://.*\.mp3$'), URLDownload),
     ]
 
 
@@ -23,3 +25,4 @@ class DownloadFactory:
                 return download_cls()
 
         raise ValueError(f"Unsupported download URL: {url}")
+
