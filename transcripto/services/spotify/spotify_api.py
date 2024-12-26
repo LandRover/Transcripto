@@ -1,6 +1,5 @@
 import re
 import time
-import base62
 import requests
 from transcripto.utils.http import verify_response
 from .models import SpotifyURL, SpotifyDownloadItem
@@ -30,11 +29,6 @@ class SpotifyAPI:
                 "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         })
         self.__get_access_token()
-
-
-    @staticmethod
-    def media_id_to_gid(media_id: str) -> str:
-        return hex(base62.decode(media_id, base62.CHARSET_INVERTED))[2:].zfill(32)
 
 
     def __get_access_token(self):
