@@ -8,11 +8,12 @@ from .apple_podcast_download import ApplePodcastDownload
 class DownloadFactory:
     # Mapping of patterns to download engine classes
     download_engines_mapping = [
-        (re.compile(r'^https?://(www\.)?spotify\.com/.*'), SpotifyDownload),
+        (re.compile(r'^https?://(open\.)?spotify\.com/.*'), SpotifyDownload),
         (re.compile(r'^https?://(www\.)?youtube\.com/.*'), YoutubeDownload),
-        (re.compile(r'^https?://(www\.)?apple\.com/podcast/.*'), ApplePodcastDownload),
+        (re.compile(r'^https?://(podcasts\.)?apple\.com/.*'), ApplePodcastDownload),
         (re.compile(r'^https?://.*'), URLDownload),  # Fallback for generic URLs
     ]
+
 
     @staticmethod
     def get_download_engine(url):
@@ -20,4 +21,5 @@ class DownloadFactory:
             if pattern.match(url):
                 logging.info(f"Detected pattern: {pattern}")
                 return download_cls()
+
         raise ValueError(f"Unsupported download URL: {url}")

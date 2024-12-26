@@ -2,14 +2,12 @@
 import logging
 import argparse
 from dotenv import load_dotenv
-from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor
 from transcripto.handlers.tts_handler import process_tts
 from transcripto.handlers.transcription_handler import process_transcription
 from transcripto.handlers.summarization_handler import process_summarization
 from transcripto.handlers.download_handler import process_download
 from config import setup_logging, TEMP_DIR, OUTPUT_DIR
-from transcripto.utils.file_utils import ensure_directories, extract_filename_from_url
+from transcripto.utils.file_utils import ensure_directories
 
 def main():
     load_dotenv()

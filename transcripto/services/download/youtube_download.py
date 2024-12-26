@@ -3,10 +3,8 @@ import io
 import re
 import os
 import yt_dlp
-from pydub import AudioSegment
-
 from .download_base import DownloadBase
-
+from pathlib import Path
 
 class YoutubeDownload(DownloadBase):
     def get_filename(self, url):
@@ -16,8 +14,8 @@ class YoutubeDownload(DownloadBase):
         return match.group(1) if match else None
 
 
-    def download(self, url):
-        output_directory = "/tmp/"
+    def download(self, url: str, temp_path: Path):
+        output_directory = temp_path
         output_filename_format = '%(id)s - %(title)s (%(uploader)s) (%(id)s) (%(upload_date)s).%(ext)s'
 
         try:
@@ -42,7 +40,7 @@ class YoutubeDownload(DownloadBase):
                 file_path = ydl.prepare_filename(info_dict)
                 file_path = os.path.splitext(file_path)[0] + ".mp3"  # Adjust for postprocessor
 
-            print("Download and conversion completed successfully.")
+            logging.info("Download and conversion completed successfully.")
 
             # Read the file into the buffer
             with open(file_path, 'rb') as f:
@@ -57,6 +55,6 @@ class YoutubeDownload(DownloadBase):
             return mp3_bytes
 
         except Exception as e:
-            print(f"An error occurred: {e}")
+            logging.error(f"An error occurred: {e}")
             return None
 
