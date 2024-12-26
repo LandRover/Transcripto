@@ -11,3 +11,4 @@ gTTS
 yt_dlp
 python-telegram-bot
 nest_asyncio
+nltk
