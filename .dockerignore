@@ -1,0 +1,17 @@
+# Ignore environment files
+.env
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore system files
+.DS_Store
+*.swp
+
+# Ignore logs
+*.log
+
+# Ignore output directory
+output/

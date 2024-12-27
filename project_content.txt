@@ -1,0 +1,1547 @@
+--- File: ./config.py ---
+import os
+import logging
+
+
+OUTPUT_DIR = "./output"
+TEMP_DIR = "./output/tmp"
+LOG_FORMAT = "%(asctime)s [%(levelname)s] %(message)s"
+
+def setup_logging(level):
+    logging.basicConfig(level=level, format=LOG_FORMAT)
+-e 
+
+--- File: ./setup.py ---
+from setuptools import find_packages
+from setuptools import setup
+
+with open("requirements.txt") as f:
+    content = f.readlines()
+
+requirements = [x.strip() for x in content if "git+" not in x]
+
+setup(
+    name="transcripto",
+    version="1.0",
+    description="Transcripto",
+    packages=find_packages(),
+    install_requires=requirements,
+)
+-e 
+
+--- File: ./transcripto/cli.py ---
+import logging
+import argparse
+import os
+from dotenv import load_dotenv
+from transcripto.handlers.tts_handler import process_tts
+from transcripto.handlers.transcription_handler import process_transcription
+from transcripto.handlers.summarization_handler import process_summarization
+from transcripto.handlers.download_handler import process_download
+from config import setup_logging, TEMP_DIR, OUTPUT_DIR
+from transcripto.utils.file_utils import ensure_directories
+from .telegram_bot import start_loop_bot
+import asyncio
+
+
+def cli_mode():
+    load_dotenv()
+
+    parser = argparse.ArgumentParser(description="Audio Transcription Script with Improvements")
+    parser.add_argument("--url", type=str, default="", help="URL or local path of the MP3 file")
+    parser.add_argument("--audio-ext", type=str, default="mp3", help="Default output audio ext, usually mp3")
+    parser.add_argument("--temp-dir", type=str, default=TEMP_DIR, help="Directory for temporary files")
+    parser.add_argument("--output-dir", type=str, default=OUTPUT_DIR, help="Directory to save output files")
+    parser.add_argument("--transcript_engine", type=str, default="wisper", help="Transcription model")
+    parser.add_argument("--summarization_engine", type=str, default="openai", help="summarization engine")
+    parser.add_argument("--summarization_model", type=str, default="gpt-4o-mini", help="summarization model")
+    parser.add_argument("--tts_engine", type=str, default="openai_gpt", help="text-to-speech engine")
+    parser.add_argument("--tts_model", type=str, default="gpt-4o-audio-preview", help="text-to-speech model")
+    parser.add_argument("--language", type=str, default="en-US", help="Language code for transcription")
+    parser.add_argument("--force", action="store_true", help="Force recreation of output files")
+    parser.add_argument("--summarize", action="store_true", help="Generate a summarized output file")
+    parser.add_argument("--tts", action="store_true", help="Generate a text-to-speech output file")
+    parser.add_argument("--telegram-bot", action="store_true", help="Run as telegram bot")
+    parser.add_argument("--log-level", type=str, default="INFO", help="Set logging level (DEBUG, INFO, WARNING, ERROR)")
+    args = parser.parse_args()
+
+    setup_logging(args.log_level)
+    ensure_directories([TEMP_DIR, OUTPUT_DIR])
+
+    try:
+        if args.telegram_bot:
+            logging.info(f"Running in Telegram bot mode.")
+            TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+
+            try:
+                asyncio.run(start_loop_bot(TELEGRAM_BOT_TOKEN))
+            except RuntimeError:
+                import nest_asyncio
+                nest_asyncio.apply()
+                asyncio.run(start_loop_bot(TELEGRAM_BOT_TOKEN))
+            return
+
+        file_title, audio_local_path, audio_metadata = process_download(args.url)
+        logging.info(f"Metadata extracted from {audio_local_path}: {audio_metadata}")
+
+        transcription_text = process_transcription(
+            audio_local_path,
+            args.temp_dir,
+            file_title,
+            args.audio_ext,
+            args.transcript_engine,
+            language=args.language,
+            force=args.force
+        )
+
+        summary = None
+        if args.summarize:
+            summary_text = process_summarization(
+                transcription_text,
+                file_title,
+                args.summarization_engine,
+                args.summarization_model,
+                args.force
+            )
+
+        tts = None
+        if args.tts and args.summarize:
+            tts = process_tts(
+                file_title,
+                summary_text,
+                args.tts_engine,
+                args.tts_model,
+                args.force,
+            )
+        print(f"Transcription completed. {'Summary saved.' if summary_text else ''}")
+
+    except Exception as e:
+        print(f"Error: {e}")
+
+-e 
+
+--- File: ./transcripto/handlers/download_handler.py ---
+import os
+import time
+import logging
+from pathlib import Path
+from config import TEMP_DIR, OUTPUT_DIR
+from transcripto.services.download.download_factory import DownloadFactory
+from transcripto.utils.file_utils import save_to_file, get_output_file
+from transcripto.handlers.metadata_handler import fetch_audio_metadata
+
+
+def process_download(url, force=False):
+    start_time = time.time()
+
+    logging.info(f"Starting download {url}...")
+
+    downloader = DownloadFactory.get_download_engine(url)
+    target_filename = downloader.get_filename(url)
+
+    base_filename = f"{target_filename}_raw"
+    output_file = get_output_file(base_filename, "mp3")
+
+    # cached file already exists, use it.
+    if not force and os.path.exists(output_file):
+        logging.info(f"Using existing cached file: {output_file}")
+        audio_metadata = fetch_audio_metadata(output_file)
+        return target_filename, output_file, audio_metadata
+
+    # Select the download strategy
+    download_output = downloader.download(
+        url,
+        Path(TEMP_DIR)
+    )
+    
+    logging.info(f"Download completed in {time.time() - start_time:.2f} seconds.")
+    save_to_file(output_file, download_output)
+    audio_metadata = fetch_audio_metadata(output_file)
+    logging.info(f"Download saved to {output_file}")
+
+    return target_filename, output_file, audio_metadata
+-e 
+
+--- File: ./transcripto/handlers/metadata_handler.py ---
+import logging
+from mutagen.mp3 import MP3
+
+def fetch_audio_metadata(filepath):
+    """
+    Fetch metadata from an MP3 file.
+
+    Args:
+        filepath (str): Path to the MP3 file.
+
+    Returns:
+        dict: A dictionary containing metadata such as duration, bitrate, and channels.
+    """
+    try:
+        audio = MP3(filepath)
+        metadata = {
+            "duration": audio.info.length,  # Duration in seconds
+            "bitrate": audio.info.bitrate,  # Bitrate in kbps
+            "channels": audio.info.channels,  # Number of audio channels
+        }
+        
+        return metadata
+    except Exception as e:
+        logging.error(f"Failed to extract metadata from {filepath}: {e}")
+        return {}
+-e 
+
+--- File: ./transcripto/handlers/summarization_handler.py ---
+import os
+import time
+import logging
+from transcripto.services.summarizer.summarizer_factory import SummarizerFactory
+from transcripto.utils.file_utils import save_to_file, get_output_file
+
+def sanitize_text(text: str) -> str:
+        """
+        Sanitize the given text by replacing '**' with '*' and '--' with '-'.
+
+        Args:
+            text (str): The input text to sanitize.
+
+        Returns:
+            str: The sanitized text.
+        """
+        sanitized_text = text.replace('**', '*').replace('--', '-')
+    
+        return sanitized_text
+
+def process_summarization(text, title, summarizer_engine="openai", summarizer_model="gpt-4o-mini", force=False):
+    logging.info(f"Starting summarization {title} using {summarizer_engine}...")
+    start_time = time.time()
+
+    base_filename = f"{title}_{summarizer_engine}_{summarizer_model}_summary"
+    output_file = get_output_file(base_filename, "txt")
+
+    if not force and os.path.exists(output_file):
+        logging.info(f"Using existing summary: {output_file}")
+        with open(output_file, "r", encoding="utf-8") as f:
+            return f.read()
+
+    # Select the transcriptor strategy
+    summarizer = SummarizerFactory.get_summarizer(summarizer_engine)
+    summary_output_text = sanitize_text(summarizer.summarize_text(
+        text,
+        summarizer_model,
+        max_tokens = 1024,
+        temperature = 0.1,
+        retries = 3,
+        delay = 2
+    ))
+    
+    logging.info(f"Summarization completed in {time.time() - start_time:.2f} seconds.")
+    save_to_file(output_file, summary_output_text)
+    logging.info(f"Summary saved to {output_file}")
+
+    return summary_output_text
+-e 
+
+--- File: ./transcripto/handlers/transcription_handler.py ---
+import os
+import logging
+import time
+from transcripto.services.transcriptors.transcriptor_factory import TranscriptorFactory
+from transcripto.utils.file_utils import save_to_file, get_output_file
+from transcripto.utils.text import split_text_into_paragraphs
+
+def process_transcription(
+        audio_url, temp_dir, title, ext="mp3", transcript_engine="speech_recognition", language="en-US", min_silence_len=1000, silence_thresh=-14, force=False
+):
+    start_time = time.time()
+    logging.info(f"Starting transcription using {transcript_engine} model...")
+
+    base_filename = f"{title}_{transcript_engine}_transcript"
+    output_file = get_output_file(base_filename, "txt")
+
+    if not force and os.path.exists(output_file):
+        logging.info(f"Raw transcription file already exists: {output_file}, using it.")
+        with open(output_file, "r", encoding="utf-8") as f:
+            return f.read()
+
+    # Select the transcriptor strategy
+    transcriptor = TranscriptorFactory.get_transcriptor(transcript_engine)
+    transcription_output_text = transcriptor.transcribe(
+        audio_url,
+        temp_dir,
+        title,
+        language,
+        force
+    )
+
+    logging.info(f"Transcription completed in {time.time() - start_time:.2f} seconds.")
+
+    formatted_text = split_text_into_paragraphs(transcription_output_text)
+    
+    save_to_file(output_file, formatted_text)
+
+    logging.info(f"Raw transcription saved to {output_file}")
+
+    return formatted_text
+-e 
+
+--- File: ./transcripto/handlers/tts_handler.py ---
+import os
+import logging
+import time
+from transcripto.services.text_to_speech.text_to_speech_factory import TextToSpeechFactory
+from transcripto.utils.file_utils import save_to_file, get_output_file
+
+def process_tts(
+        title, text, tts_engine="openai_gpt", tts_model="gpt-4o-audio-preview", force=False, voice="alloy", format="mp3"
+):
+    start_time = time.time()
+    logging.info(f"Starting TTS using {tts_engine} {tts_model} model...")
+
+    base_filename = f"{title}_{tts_engine}_{tts_model}_tts"
+    output_file = get_output_file(base_filename, "mp3")
+
+    if not force and os.path.exists(output_file):
+        logging.info(f"Raw text-to-speech file already exists: {output_file}, using it.")
+        with open(output_file, "rb") as f:
+            return f.read()
+
+    # Select the tts strategy
+    tts = TextToSpeechFactory.get_tts(tts_engine)
+    tts_output_mp3_bytes = tts.generate_text_to_speech(
+        text,
+        tts_model,
+        voice,
+        format,
+        force
+    )
+
+    logging.info(f"text-to-speech completed in {time.time() - start_time:.2f} seconds.")
+    save_to_file(output_file, tts_output_mp3_bytes)
+    logging.info(f"Raw text-to-speech saved to {output_file}")
+
+    return tts_output_mp3_bytes
+-e 
+
+--- File: ./transcripto/handlers/__init__.py ---
+-e 
+
+--- File: ./transcripto/services/download/apple_podcast_download.py ---
+import re
+import logging
+import requests
+from .download_base import DownloadBase
+from .url_download import URLDownload
+from transcripto.utils.file_utils import extract_filename_from_url
+from pathlib import Path
+
+class ApplePodcastDownload(DownloadBase):
+    def get_filename(self, url):
+        filename = extract_filename_from_url(url)
+        
+        return filename
+    
+    def download(self, url: str, temp_path: Path):
+        logging.info(f"ApplePodcastDownload starting download {url}...")
+
+        try:
+            response = requests.get(url, stream = True)
+            response.raise_for_status()
+            
+            # Extract the streamUrl using a regex pattern
+            stream_url_pattern = r'"streamUrl":"(https?://[^"]+\.mp3)"'
+            match = re.search(stream_url_pattern, response.text)
+            url_downloader = URLDownload()
+            
+            if match:
+                mp3_path = match.group(1)
+                logging.info(f"Detected a url for a podcast episode {mp3_path}, Offloading to URLDownload")
+                mp3_content = url_downloader.download(mp3_path, temp_path)
+                return mp3_content
+            else:
+                logging.error(f"MP3 path could not be deleted from this podcast: {url}")
+                return None
+        
+        except requests.RequestException as e:
+            logging.error(f"Failed to download file: {e}")
+            raise
+-e 
+
+--- File: ./transcripto/services/download/download_base.py ---
+from abc import ABC, abstractmethod
+from pathlib import Path
+
+class DownloadBase(ABC):
+    @abstractmethod
+    def get_filename(self, url):
+        pass
+
+
+    @abstractmethod
+    def download(self, url: str, temp_path: Path):
+        pass
+-e 
+
+--- File: ./transcripto/services/download/download_factory.py ---
+import re
+import logging
+from .url_download import URLDownload
+from .spotify_download import SpotifyDownload
+from .youtube_download import YoutubeDownload
+from .apple_podcast_download import ApplePodcastDownload
+from .pocketcasts_download import PocketCastsDownload
+
+class DownloadFactory:
+    # Mapping of patterns to download engine classes
+    download_engines_mapping = [
+        (re.compile(r'^https?://(open\.)?spotify\.com/.*'), SpotifyDownload),
+        (re.compile(r'^https?://(www\.)?youtube\.com/.*'), YoutubeDownload),
+        (re.compile(r'^https?://(podcasts\.)?apple\.com/.*'), ApplePodcastDownload),
+        (re.compile(r'^https://pca\.st/episode/[a-f0-9\-]+$'), PocketCastsDownload),
+        (re.compile(r'^https://.*\.mp3$'), URLDownload),
+    ]
+
+
+    @staticmethod
+    def get_download_engine(url):
+        for pattern, download_cls in DownloadFactory.download_engines_mapping:
+            if pattern.match(url):
+                logging.info(f"Detected pattern: {pattern}")
+                return download_cls()
+
+        raise ValueError(f"Unsupported download URL: {url}")
+
+-e 
+
+--- File: ./transcripto/services/download/pocketcasts_download.py ---
+import re
+import logging
+import requests
+from .download_base import DownloadBase
+from .url_download import URLDownload
+from transcripto.utils.file_utils import extract_filename_from_url
+from pathlib import Path
+
+class PocketCastsDownload(DownloadBase):
+    def get_filename(self, url):
+        filename = extract_filename_from_url(url)
+        
+        return filename
+    
+    def download(self, url: str, temp_path: Path):
+        logging.info(f"PocketCastsDownload starting download {url}...")
+
+        try:
+            response = requests.get(url, stream = True)
+            response.raise_for_status()
+            
+            # Extract the streamUrl using a regex pattern
+            stream_url_pattern = r'<audio[^>]*\s+src="([^"]+\.mp3[^"]*)"'
+            match = re.search(stream_url_pattern, response.text)
+            url_downloader = URLDownload()
+            
+            if match:
+                mp3_path = match.group(1)
+                logging.info(f"Detected a url for a podcast episode {mp3_path}, Offloading to URLDownload")
+                mp3_content = url_downloader.download(mp3_path, temp_path)
+                return mp3_content
+            else:
+                logging.error(f"MP3 path could not be deleted from this podcast: {url}")
+                return None
+        
+        except requests.RequestException as e:
+            logging.error(f"Failed to download file: {e}")
+            raise
+-e 
+
+--- File: ./transcripto/services/download/spotify_download.py ---
+import logging
+import io
+import os
+from dataclasses import dataclass
+import shutil
+import subprocess
+from pathlib import Path
+from .download_base import DownloadBase
+from transcripto.utils.file_utils import extract_filename_from_url
+from yt_dlp.downloader.http import HttpFD
+from yt_dlp.YoutubeDL import YoutubeDL
+from transcripto.services.spotify.spotify_api import SpotifyAPI
+
+
+class SpotifyDownload(DownloadBase):
+    DECRYPTION_KEY_EPISODE = (
+        b"\xde\xad\xbe\xef\xde\xad\xbe\xef\xde\xad\xbe\xef\xde\xad\xbe\xef" # deadbeefdeadbeefdeadbeefdeadbeef
+    )
+    URL_RE = r"(episode)/(\w{22})"
+    TEMP_FILE_STRUCTURE = "{file_id}_{encryption_state}.{ext}"
+
+    def __init__(self):
+        self.spotify_api = SpotifyAPI()
+        self.ffmpeg_path = shutil.which("ffmpeg")
+        self._set_subprocess_additional_args()
+
+
+    def _set_subprocess_additional_args(self):
+        if False:
+            self.subprocess_additional_args = {
+                "stdout": subprocess.DEVNULL,
+                "stderr": subprocess.DEVNULL,
+            }
+        else:
+            self.subprocess_additional_args = {}
+
+
+    def get_filename(self, url):
+        filename = extract_filename_from_url(url)
+
+        return filename
+
+
+    def __remove_temp_path(self):
+        if self.temp_path.exists():
+            logging.debug(f'Cleaning up "{self.temp_path}"')
+            shutil.rmtree(self.temp_path)
+    
+
+    def download(self, url: str, temp_path: Path):
+        # Create an in-memory buffer
+        buffer = io.BytesIO()
+
+        self.temp_path = temp_path
+        self.__remove_temp_path()
+        
+        logging.info(f"SpotifyDownload Starting download {url}...")
+        spotify_url = self.spotify_api.extract_media_from_url(url)
+
+        audio_url = self.spotify_api.get_episode_url(spotify_url.id)
+        temp_file_encrypted = self.__get_temp_filepath(spotify_url.id, "encrypted", "m4a")
+        temp_file_decrypted = self.__get_temp_filepath(spotify_url.id, "decrypted", "mp3")
+      
+        logging.debug(f'Downloading to "{temp_file_encrypted}"')
+        self.download_audio_url(audio_url, temp_file_encrypted)
+
+        decrpytion_key = self.DECRYPTION_KEY_EPISODE.hex()
+        self.decrypt(decrpytion_key, temp_file_encrypted, temp_file_decrypted)
+
+        # Read the file into the buffer
+        with open(temp_file_decrypted, 'rb') as f:
+            buffer.write(f.read())
+
+        # Delete the temporary file
+        os.remove(temp_file_encrypted)
+        os.remove(temp_file_decrypted)
+
+        buffer.seek(0)
+        mp3_bytes = buffer.read()
+        
+        return mp3_bytes
+
+
+    def __get_temp_filepath(self, episode_id: str, encryption_state: str, file_extension: str) -> Path:
+        temp_filename = self.TEMP_FILE_STRUCTURE.format(file_id=episode_id, encryption_state=encryption_state, ext=file_extension)
+        temp_path_rel = (self.temp_path / temp_filename)
+
+        return temp_path_rel
+    
+
+    def download_audio_url(self, audio_url: str, input_path: Path) -> None:
+        input_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with YoutubeDL(
+            {
+                "quiet": True,
+                "no_warnings": True,
+                "noprogress": False,
+            }
+        ) as ydl:
+            http_downloader = HttpFD(ydl, ydl.params)
+            http_downloader.download(str(input_path), {
+                "url": audio_url,
+            })
+
+
+    def decrypt(
+        self,
+        decryption_key: bytes | str,
+        encrypted_path: Path,
+        decrypted_path: Path,
+    ):
+        self.__decrypt_widevine_ffmpeg(
+            decryption_key,
+            encrypted_path,
+            decrypted_path,
+        )
+
+
+    def __decrypt_widevine_ffmpeg(
+        self,
+        decryption_key: str,
+        encrypted_path: Path,
+        decrypted_path: Path,
+    ):
+        subprocess.run(
+            [
+                self.ffmpeg_path,
+                "-loglevel",
+                "error",
+                "-y",
+                "-decryption_key",
+                decryption_key,
+                "-i",
+                encrypted_path,
+                "-vn",
+                "-acodec",
+                "libmp3lame",
+                "-q:a",
+                "2",
+                decrypted_path,
+            ],
+            check=True,
+            **self.subprocess_additional_args,
+        )
+-e 
+
+--- File: ./transcripto/services/download/url_download.py ---
+import logging
+import requests
+from pathlib import Path
+from .download_base import DownloadBase
+from transcripto.utils.file_utils import extract_filename_from_url
+
+class URLDownload(DownloadBase):
+    def get_filename(self, url):
+        filename = extract_filename_from_url(url)
+
+        return filename
+
+
+    def download(self, url: str, temp_path: Path):
+        logging.info(f"URLDownload Starting download {url}...")
+
+        # local path handler, move elsewhere?
+        # if os.path.isfile(url):
+        #    logging.info(f"Using local file: {url}")
+        #    with open(url, "rb") as f:
+        #        return f.read()
+
+        logging.info(f"Downloading file from URL: {url}")
+
+        try:
+            response = requests.get(url, stream = True)
+            response.raise_for_status()
+            logging.info(f"Download completed: {url}")
+
+            return response.content
+        
+        except requests.RequestException as e:
+            logging.error(f"Failed to download file: {e}")
+            raise
+-e 
+
+--- File: ./transcripto/services/download/youtube_download.py ---
+import logging
+import io
+import re
+import os
+import yt_dlp
+from .download_base import DownloadBase
+from pathlib import Path
+
+class YoutubeDownload(DownloadBase):
+    def get_filename(self, url):
+        youtube_regex = r'(?:v=|\/)([0-9A-Za-z_-]{11})(?:[&?\/]|$)'
+        match = re.search(youtube_regex, url)
+
+        return match.group(1) if match else None
+
+
+    def download(self, url: str, temp_path: Path):
+        output_directory = temp_path
+        output_filename_format = '%(id)s - %(title)s (%(uploader)s) (%(id)s) (%(upload_date)s).%(ext)s'
+
+        try:
+            # Create an in-memory buffer
+            buffer = io.BytesIO()
+
+            # Configure yt_dlp options
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '192',
+                }],
+                'outtmpl': os.path.join(output_directory, output_filename_format),
+                'quiet': True,  # Suppress yt_dlp logs
+            }
+
+            # Download audio
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info_dict = ydl.extract_info(url, download=True)
+                file_path = ydl.prepare_filename(info_dict)
+                file_path = os.path.splitext(file_path)[0] + ".mp3"  # Adjust for postprocessor
+
+            logging.info("Download and conversion completed successfully.")
+
+            # Read the file into the buffer
+            with open(file_path, 'rb') as f:
+                buffer.write(f.read())
+
+            # Delete the temporary file
+            os.remove(file_path)
+
+            buffer.seek(0)  # Reset buffer pointer
+            mp3_bytes = buffer.read()  # Return the binary MP3 content
+            
+            return mp3_bytes
+
+        except Exception as e:
+            logging.error(f"An error occurred: {e}")
+            return None
+
+-e 
+
+--- File: ./transcripto/services/download/__init__.py ---
+-e 
+
+--- File: ./transcripto/services/spotify/models.py ---
+from dataclasses import dataclass
+
+
+@dataclass
+class SpotifyURL:
+    id: str = None
+    type: str = None
+
+
+@dataclass
+class SpotifyDownloadItem:
+    episode_metadata: dict = None
+
+-e 
+
+--- File: ./transcripto/services/spotify/spotify_api.py ---
+import re
+import time
+import requests
+from transcripto.utils.http import verify_response
+from .models import SpotifyURL, SpotifyDownloadItem
+
+class SpotifyAPI:
+    SPOTIFY_TOKEN_URL = 'https://open.spotify.com/get_access_token?reason=transport&productType=web-player'
+    SPOTIFY_APP_VERSION = "1.2.54.219.g19a93a5d" # 24/12/2024
+    SPOTIFY_HOME_PAGE_URL = "https://open.spotify.com"
+    EPISODE_METADATA_API_URL = "https://spclient.wg.spotify.com/soundfinder/v1/unauth/episode/{item_id}/com.widevine.alpha?market=from_token"
+    STREAM_URLS_API_URL = "https://gue1-spclient.spotify.com/storage-resolve/v2/files/audio/interactive/11/{file_id}?version=10000000&product=9&platform=39&alt=json"
+
+
+    def __init__(self):
+        self.__apply_requests_session()
+
+
+    def __apply_requests_session(self):
+        self.session = requests.Session()
+        self.session.headers.update({
+                "accept": "application/json",
+                "content-type": "application/json",
+                "accept-language": "en-US",
+                "origin": self.SPOTIFY_HOME_PAGE_URL,
+                "referer": self.SPOTIFY_HOME_PAGE_URL,
+                "spotify-app-version": self.SPOTIFY_APP_VERSION,
+                "app-platform": "WebPlayer",
+                "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        })
+        self.__get_access_token()
+
+
+    def __get_access_token(self):
+        token_request = self.session.get(url = self.SPOTIFY_TOKEN_URL)
+
+        if token_request.status_code != 200:
+            return None
+        
+        token_json = token_request.json()
+        self.session_info = token_json
+        access_token = token_json.get('accessToken')
+
+        self.session.headers.update({
+            "Authorization": f"Bearer {access_token}",
+        })
+
+        return access_token
+
+
+    def __refresh_access_token(self):
+        timestamp_session_expire = int(self.session_info["accessTokenExpirationTimestampMs"])
+
+        timestamp_now = time.time() * 1000
+        if timestamp_now < timestamp_session_expire:
+            return
+        
+        return self.get_access_token()
+
+
+    def get_episode_metadata_unauth(self, media_id: str) -> list[SpotifyDownloadItem]:
+        self.__refresh_access_token()
+        
+        response = self.session.get(self.EPISODE_METADATA_API_URL.format(item_id = media_id))
+        verify_response(response)
+
+        return SpotifyDownloadItem(
+            episode_metadata = response.json(),
+        )
+    
+    
+    def get_episode_url(self, media_id: str) -> str:
+        episode = self.get_episode_metadata_unauth(media_id)
+
+        return episode.episode_metadata["url"][0]
+
+
+    def extract_media_from_url(self, url):
+        URL_RE = r"(episode)/(\w{22})"
+        url_regex_result = re.search(URL_RE, url)
+
+        if url_regex_result is None:
+            raise Exception("Invalid URL")
+        
+        return SpotifyURL(
+            type=url_regex_result.group(1),
+            id=url_regex_result.group(2)
+        )
+-e 
+
+--- File: ./transcripto/services/spotify/__init__.py ---
+-e 
+
+--- File: ./transcripto/services/summarizer/openai_summarizer.py ---
+import os
+import time
+import logging
+from openai import OpenAI
+
+from .summarizer_base import SummarizerBase
+
+class OpenAISummarizer(SummarizerBase):
+
+    def summarize_text(self, text, model="gpt-4o-mini", max_tokens=1024, temperature=0.1, retries=3, delay=2):
+        """
+        Summarizes the given text using OpenAI's GPT model with a focus on software R&D.
+
+        Args:
+            text (str): The text to summarize.
+
+        Returns:
+            str: The summary of the input text in 6 points.
+        """
+
+        for attempt in range(retries):
+            try:
+                client = OpenAI(
+                    api_key = os.environ.get("OPENAI_API_KEY"),
+                )
+
+                prompt = (f"I am a development manager developing software."
+                            "\nThe attached text is a transcript of a podcast episode."
+                            "\nHelp me summerize 6 points and 4 internal bullets in each of the essentials."
+                            "\nPlease keep the chronological order of the points as they apear in the original text."
+                            "\nFocus on takeaways I could use in my organiation to improve my teams."
+                            "\nBe detailed, explicit and clear in the internal bullet points, not to general as it tends to be."
+                            "\nRespond in Hebrew."
+                            "\n\nHere is the text to to summerize:"
+                            "\n" + text)
+
+                response = client.chat.completions.create(
+                    model = model,
+                    max_tokens = max_tokens,
+                    temperature = temperature,
+                    messages = [
+                        {"role": "system", "content": "You are a technical expert specializing in mostly in backend development."},
+                        {"role": "user", "content": (
+                            prompt
+                        )}
+                    ]
+                )
+                
+                # Accessing the first message's content in the response
+                logging.info(response)
+                logging.info(response.model_dump())
+                summary = response.choices[0].message.content
+                logging.info(summary)
+                return summary.strip()
+            except Exception as e:
+                if attempt < retries - 1:
+                    time.sleep(delay * (2 ** attempt))
+                else:
+                    logging.error(f"Summarization failed after {retries} attempts: {e}")
+                    return "Summarization failed."
+-e 
+
+--- File: ./transcripto/services/summarizer/summarizer_base.py ---
+from abc import ABC, abstractmethod
+
+class SummarizerBase(ABC):
+    @abstractmethod
+    def summarize_text(self, text, model, max_tokens, temperature, retries, delay):
+        pass
+-e 
+
+--- File: ./transcripto/services/summarizer/summarizer_factory.py ---
+from .openai_summarizer import OpenAISummarizer
+
+
+class SummarizerFactory:
+    summarizers_engines_mapping = {
+        "openai": OpenAISummarizer,
+    }
+
+    @staticmethod
+    def get_summarizer(summarizer_engine):
+        summarizer_cls = SummarizerFactory.summarizers_engines_mapping.get(summarizer_engine)
+        if not summarizer_cls:
+            raise ValueError(f"Unsupported summarizer engine: {summarizer_engine}")
+        return summarizer_cls()
+
+-e 
+
+--- File: ./transcripto/services/summarizer/__init__.py ---
+-e 
+
+--- File: ./transcripto/services/text_to_speech/google_texttospeech_tts.py ---
+import logging
+from google.cloud import texttospeech
+from .text_to_speech_base import TextToSpeechBase
+
+class Google_TextToSpeech(TextToSpeechBase):
+    def generate_text_to_speech(self, text, tts_model="", voice="alloy", format="mp3", force=False):
+        try:
+            client = texttospeech.TextToSpeechClient()
+            synthesis_input = texttospeech.SynthesisInput(text)
+            
+            voice = texttospeech.VoiceSelectionParams(
+                language_code = "he-IL", 
+                ssml_gender = texttospeech.SsmlVoiceGender.FEMALE
+            )
+            
+            audio_config = texttospeech.AudioConfig(
+                audio_encoding = texttospeech.AudioEncoding.MP3
+            )
+            
+            response = client.synthesize_speech(
+                input = synthesis_input, voice=voice, audio_config=audio_config
+            )
+
+            mp3_bytes = response.audio_content
+            return mp3_bytes
+        except Exception as e:
+            logging.error(f"text-to-speech failed attempts: {e}")
+            raise RuntimeError(f"Error generating speech: {e}")
+-e 
+
+--- File: ./transcripto/services/text_to_speech/gtts_tts.py ---
+import io
+import logging
+from gtts import gTTS
+
+from .text_to_speech_base import TextToSpeechBase
+
+class gTTS(TextToSpeechBase):
+    def generate_text_to_speech(self, text, tts_model="", voice="alloy", format="mp3", force=False):
+        try:
+            tts = gTTS(text, lang = 'iw')
+
+            # Save MP3 to in-memory buffer
+            buffer = io.BytesIO()
+            tts.write_to_fp(buffer)  # Use write_to_fp to save MP3 data into the buffer
+            buffer.seek(0)  # Move to the start of the buffer
+            mp3_bytes = buffer.read()
+            return mp3_bytes
+        except Exception as e:
+            logging.error(f"text-to-speech failed attempts: {e}")
+            raise RuntimeError(f"Error generating speech: {e}")
+-e 
+
+--- File: ./transcripto/services/text_to_speech/openai_gpt_tts.py ---
+import os
+import io
+import logging
+import base64
+from openai import OpenAI
+from .text_to_speech_base import TextToSpeechBase
+
+class OpenAIGPT(TextToSpeechBase):
+    def generate_text_to_speech(self, text, tts_model="gpt-4o-audio-preview", voice="alloy", format="mp3", force=False):
+        try:
+            client = OpenAI(
+                api_key = os.environ.get("OPENAI_API_KEY"),
+            )
+
+            prompt = (f"You are a helpful hebrew speaking assistant that can generate audio from text."
+                        "\nSpeak in a Hebrew without accent."
+                    )
+
+            completion = client.chat.completions.create(
+                model = tts_model,
+                modalities = ["text", "audio"],
+                audio = {
+                    "voice": voice,
+                    "format": format
+                },
+                messages = [
+                    {
+                        "role": "system",
+                        "content": prompt,
+                    },
+                    {
+                        "role": "user",
+                        "content": text,
+                    }
+                ],
+            )
+
+            mp3_bytes = base64.b64decode(completion.choices[0].message.audio.data)
+            return mp3_bytes
+        except Exception as e:
+            logging.error(f"text-to-speech failed attempts: {e}")
+            raise RuntimeError(f"Error generating speech: {e}")
+
+-e 
+
+--- File: ./transcripto/services/text_to_speech/openai_tts1_tts.py ---
+import os
+import io
+import logging
+from openai import OpenAI
+from .text_to_speech_base import TextToSpeechBase
+
+class OpenAITTS1(TextToSpeechBase):
+    def generate_text_to_speech(self, text, tts_model="tts-1", voice="alloy", format="mp3", force=False):
+        try:
+            client = OpenAI(
+                api_key = os.environ.get("OPENAI_API_KEY"),
+            )
+
+            response = client.audio.speech.create(
+                model = tts_model,
+                voice = voice,
+                input = text
+            )
+
+            # Stream the response content into a buffer
+            buffer = io.BytesIO()
+            for chunk in response.iter_bytes():  # Stream MP3 data chunks
+                buffer.write(chunk)
+            
+            buffer.seek(0)  # Reset buffer pointer
+            mp3_bytes = buffer.read()  # Return the binary MP3 content
+            
+            return mp3_bytes
+        except Exception as e:
+            logging.error(f"text-to-speech failed attempts: {e}")
+            raise RuntimeError(f"Error generating speech: {e}")
+-e 
+
+--- File: ./transcripto/services/text_to_speech/text_to_speech_base.py ---
+from abc import ABC, abstractmethod
+
+class TextToSpeechBase(ABC):
+    @abstractmethod
+    def generate_text_to_speech(self, title, text, tts_engine, tts_model, force, voice, format):
+        pass
+-e 
+
+--- File: ./transcripto/services/text_to_speech/text_to_speech_factory.py ---
+from .gtts_tts import gTTS
+from .google_texttospeech_tts import Google_TextToSpeech
+from .openai_gpt_tts import OpenAIGPT
+from .openai_tts1_tts import OpenAITTS1
+
+class TextToSpeechFactory:
+    tts_engines_mapping = {
+        "gtts": gTTS,
+        "google_texttospeech": Google_TextToSpeech,
+        "openai_gpt": OpenAIGPT,
+        "openai_tts1": OpenAITTS1,
+    }
+
+    @staticmethod
+    def get_tts(tts_engine):
+        tts_cls = TextToSpeechFactory.tts_engines_mapping.get(tts_engine)
+        if not tts_cls:
+            raise ValueError(f"Unsupported text-to-speech engine: {tts_engine}")
+        return tts_cls()
+
+-e 
+
+--- File: ./transcripto/services/text_to_speech/__init__.py ---
+-e 
+
+--- File: ./transcripto/services/transcriptors/speech_recognition_transcriptor.py ---
+from pydub import AudioSegment
+from pydub.silence import split_on_silence
+import logging
+import speech_recognition as sr
+
+import os
+import logging
+from tqdm import tqdm
+from pydub import AudioSegment
+from pydub.silence import split_on_silence
+import speech_recognition as sr
+from concurrent.futures import ThreadPoolExecutor
+from .transcriptor_base import TranscriptorBase
+
+
+class SpeechRecognitionTranscriptor(TranscriptorBase):
+    def transcribe(
+        self, mp3_path, temp_dir, title, language="en-US", force=False
+    ):
+        """
+        Transcribes an MP3 file into text with chunk processing, logging, and error handling.
+
+        Args:
+            mp3_path (str): Path to the MP3 file.
+            temp_dir (str): Directory for temporary chunk files.
+            language (str): Language code for transcription.
+            min_silence_len (int): Minimum silence length to split audio (ms).
+            silence_thresh (int): Silence threshold relative to dBFS.
+            force (bool): Force reprocessing of existing chunks.
+
+        Returns:
+            str: Final transcription text.
+        """
+
+        min_silence_len = 1000
+        silence_thresh = -14
+
+        # Load audio
+        try:
+            audio = AudioSegment.from_mp3(mp3_path)
+        except Exception as e:
+            logging.error(f"Failed to load audio file: {e}")
+            return ""
+
+
+        # Split the audio into chunks
+        logging.info("Splitting audio into chunks...")
+        try:
+            chunks = split_on_silence(
+                audio,
+                min_silence_len = min_silence_len,
+                silence_thresh = audio.dBFS + silence_thresh,
+                keep_silence = 500,
+            )
+        except Exception as e:
+            logging.error(f"Error splitting audio: {e}")
+            return ""
+
+
+        if not chunks:
+            logging.error("No chunks detected. Check silence threshold and audio content.")
+            return ""
+
+
+        # Debug: Log chunk details
+        for i, chunk in enumerate(chunks, start=1):
+            logging.debug(f"Chunk {i}: Length={len(chunk)}ms, dBFS={chunk.dBFS}")
+
+        logging.info(f"Detected {len(chunks)} chunks for transcription.")
+
+
+        recognizer = sr.Recognizer()
+        transcription_results = {}
+        problematic_chunks = []
+
+
+        def process_chunk(chunk_info):
+            """
+            Process a single chunk: save it as WAV, transcribe, and handle errors.
+            """
+            chunk_id, chunk = chunk_info
+            chunk_path = os.path.join(temp_dir, f"{title}_chunk_{chunk_id}.wav")
+
+
+            # Export chunk to WAV format
+            try:
+                # Skip export chunk if already processed, wav file exists
+                if force or not os.path.exists(chunk_path):
+                    chunk.export(chunk_path, format="wav")
+                    logging.debug(f"Exported {chunk_path}: Length={len(chunk)}ms")
+                else:
+                    logging.info(f"Skipping chunk {chunk_id}: already exists.")
+            except Exception as e:
+                logging.error(f"Failed to export chunk {chunk_id}: {e}")
+                problematic_chunks.append(chunk_path)
+                return chunk_id, ""
+
+
+            # Transcribe chunk
+            try:
+                # Load and process the audio file
+                with sr.AudioFile(chunk_path) as source:
+                    audio_data = recognizer.record(source) # Record the entire audio
+                    text = recognizer.recognize_google(audio_data, language=language)
+                    logging.debug(f"Chunk {chunk_path} -> Chunk_ID: {chunk_id} transcription: {text}")
+                    return chunk_id, text.strip()
+            except sr.UnknownValueError:
+                logging.warning(f"Could not understand Chunk_ID: {chunk_path} -> {chunk_id}")
+                problematic_chunks.append(chunk_path)
+                return chunk_id, ""
+            except sr.RequestError as e:
+                logging.error(f"API request error for Chunk_ID: {chunk_path} -> {chunk_id}: {e}")
+                problematic_chunks.append(chunk_path)
+                return chunk_id, ""
+
+
+        # Process all chunks in parallel
+        try:
+            with ThreadPoolExecutor() as executor:
+                results = list(
+                    tqdm(
+                        executor.map(process_chunk, enumerate(chunks, start=1)),
+                        total = len(chunks),
+                        desc = "Processing Chunks",
+                    )
+                )
+        except Exception as e:
+            logging.error(f"Error during chunk processing: {e}")
+            return ""
+
+
+        # Collect results explicitly to avoid losing chunks
+        for chunk_id, text in results:
+            if text:
+                transcription_results[chunk_id] = text
+            else:
+                logging.warning(f"Chunk {chunk_id} returned empty transcription.")
+
+
+        # Ensure transcription results are sorted by chunk ID
+        sorted_results = [transcription_results[chunk_id] for chunk_id in sorted(transcription_results)]
+
+
+        # Combine transcribed text
+        if sorted_results:
+            transcription = "\n\n".join(sorted_results)
+            logging.info("Transcription successfully combined.")
+        else:
+            logging.warning("No transcriptions were successful. The output file will be empty.")
+            transcription = ""
+
+
+        # Log and save problematic chunks
+        if problematic_chunks:
+            problematic_file = os.path.join(temp_dir, "problematic_chunks.txt")
+            with open(problematic_file, "w", encoding="utf-8") as f:
+                f.writelines(f"{chunk}\n" for chunk in problematic_chunks)
+            logging.warning(f"Problematic chunks saved to {problematic_file}")
+
+        return transcription
+-e 
+
+--- File: ./transcripto/services/transcriptors/transcriptor_base.py ---
+from abc import ABC, abstractmethod
+
+class TranscriptorBase(ABC):
+    @abstractmethod
+    def transcribe(self, mp3_path, temp_dir, title, language, force):
+        pass-e 
+
+--- File: ./transcripto/services/transcriptors/transcriptor_factory.py ---
+from .speech_recognition_transcriptor import SpeechRecognitionTranscriptor
+from .wisper_transcriptor import WhisperTranscriptor
+
+
+class TranscriptorFactory:
+    transcriptor_engines_mapping = {
+        "speech_recognition": SpeechRecognitionTranscriptor,
+        "wisper": WhisperTranscriptor,
+    }
+
+    @staticmethod
+    def get_transcriptor(transcriptor_engine):
+        transcriptor_cls = TranscriptorFactory.transcriptor_engines_mapping.get(transcriptor_engine)
+        if not transcriptor_cls:
+            raise ValueError(f"Unsupported transcription engine: {transcriptor_engine}")
+        return transcriptor_cls()
+
+-e 
+
+--- File: ./transcripto/services/transcriptors/wisper_transcriptor.py ---
+import logging
+import whisper
+import ssl
+from .transcriptor_base import TranscriptorBase
+
+ssl._create_default_https_context = ssl._create_unverified_context
+
+class WhisperTranscriptor(TranscriptorBase):
+    def transcribe(
+        self, mp3_path, temp_dir, title, language="en-US", force=False
+    ):
+        """
+        Transcribes an MP3 file into text with wisper processing, logging, and error handling.
+
+        Args:
+            mp3_path (str): Path to the MP3 file.
+            temp_dir (str): Directory for temporary chunk files.
+            force (bool): Force reprocessing of existing chunks.
+
+        Returns:
+            str: Final transcription text.
+        """
+
+        # Load audio
+        try:
+            model = whisper.load_model("small")
+            result = model.transcribe(mp3_path, language="he", fp16=False, verbose=False)
+            transcription = result["text"]
+
+        except Exception as e:
+            logging.error(f"Failed to transcribe audio file: {e}")
+            return ""
+
+
+        return transcription
+-e 
+
+--- File: ./transcripto/services/transcriptors/__init__.py ---
+-e 
+
+--- File: ./transcripto/services/__init__.py ---
+-e 
+
+--- File: ./transcripto/telegram_bot.py ---
+from transcripto.handlers.tts_handler import process_tts
+from transcripto.handlers.transcription_handler import process_transcription
+from transcripto.handlers.summarization_handler import process_summarization
+from transcripto.handlers.download_handler import process_download
+import logging
+from telegram import Update
+from telegram.ext import filters, CommandHandler, MessageHandler, Application, ContextTypes
+from config import TEMP_DIR
+
+async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text(
+        'I can summuraize a raw mp3, podcast, youtube video or a spotify podcast when sending a valid url\n/help - Get help information'
+    )
+
+
+# Define a function to handle messages starting with 'https://'
+async def url_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    transcription_engine = "wisper"
+    summarization_engine = "openai"
+    summarization_model = "gpt-4o-mini"
+    url = update.message.text
+
+    status_update_message = await update.message.reply_text(f"Downloading {url}")
+    
+    try:
+        file_title, audio_local_path, audio_metadata = process_download(url)
+    except Exception as e:
+        await context.bot.edit_message_text(
+            chat_id=status_update_message.chat_id,
+            message_id=status_update_message.message_id,
+            text=f"{e}"
+        )
+        return None
+
+    # status update
+    await context.bot.edit_message_text(
+        chat_id=status_update_message.chat_id,
+        message_id=status_update_message.message_id,
+        text=f"Download Completed, Starting Transcription using {transcription_engine} engine."
+    )
+
+    logging.info(f"Metadata extracted from {audio_local_path}: {audio_metadata}")
+
+    
+    transcription_text = process_transcription(
+        audio_local_path,
+        TEMP_DIR,
+        file_title,
+        "mp3",
+        transcription_engine,
+        language="en-US",
+    )
+
+    # status update
+    await context.bot.edit_message_text(
+        chat_id=status_update_message.chat_id,
+        message_id=status_update_message.message_id,
+        text=f"Transcription Completed, Summerizing using {summarization_engine} engine based on {summarization_model} model..."
+    )
+
+    summary_text = process_summarization(
+        transcription_text,
+        file_title,
+        summarization_engine,
+        summarization_model,
+    )
+
+    # status update
+    await context.bot.edit_message_text(
+        chat_id=status_update_message.chat_id,
+        message_id=status_update_message.message_id,
+        text=f"{summary_text}"
+    )
+
+
+async def start_loop_bot(API_TOKEN) -> None:
+    application = Application.builder().token(API_TOKEN).build()
+
+    # Register command and message handlers
+    application.add_handler(CommandHandler('help', help_cmd))
+    application.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^https://"), url_handler))
+
+    # Start polling for updates
+    await application.run_polling()
+
+-e 
+
+--- File: ./transcripto/utils/file_utils.py ---
+import os
+import logging
+import requests
+from urllib.parse import urlparse
+
+
+def ensure_directories(directories):
+    for directory in directories:
+        os.makedirs(directory, exist_ok=True)
+
+
+
+def save_to_file(file_path, content):
+    """
+    Saves content to a file, either as text or binary, with detailed logging.
+
+    Args:
+        file_path (str): The path to the file where content will be saved.
+        content (str or bytes): The content to save.
+
+    Raises:
+        TypeError: If content is not of type 'str' or 'bytes'.
+    """
+    try:
+        logging.debug(f"Attempting to save content to {file_path}")
+        
+        if isinstance(content, bytes):
+            logging.debug("Content is of type bytes. Opening file in binary mode.")
+            with open(file_path, "wb") as f:
+                f.write(content)
+        elif isinstance(content, str):
+            logging.debug("Content is of type str. Opening file in text mode.")
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(content)
+        else:
+            logging.error("Invalid content type provided.")
+            raise TypeError("Content must be of type 'str' or 'bytes'")
+        
+        logging.info(f"Successfully saved content to {file_path}")
+    except IOError as ioe:
+        logging.error(f"IOError encountered: {ioe}")
+        raise
+    except Exception as e:
+        logging.error(f"An unexpected error occurred: {e}")
+        raise
+
+
+
+def get_output_file(base_name, extension):
+    return f"./output/{base_name}.{extension}"
+
+
+def extract_filename_from_url(url):
+    # Parse the URL
+    parsed_url = urlparse(url)
+
+    # Extract the path and get the basename
+    filename_with_ext = os.path.basename(parsed_url.path)
+
+    # Remove the extension
+    filename, _ = os.path.splitext(filename_with_ext)
+
+    return filename
+
+-e 
+
+--- File: ./transcripto/utils/http.py ---
+import requests
+
+
+def verify_response(response: requests.Response):
+    try:
+        response.raise_for_status()
+    except requests.HTTPError:
+        throw_exception(response)
+
+
+def throw_exception(response: requests.Response):
+    raise Exception(
+        f"Request failed with error code {response.status_code}: {response.text}"
+    )
+-e 
+
+--- File: ./transcripto/utils/text.py ---
+import re
+from nltk.tokenize import sent_tokenize
+
+def split_text_into_paragraphs(text, max_sentences=5):
+    """
+    Break a long text into paragraphs with a defined number of sentences,
+    while maintaining context-aware sentence grouping.
+
+    Args:
+        text (str): The input long text in one line.
+        max_sentences (int): Number of sentences per paragraph.
+
+    Returns:
+        str: Text broken into paragraphs.
+    """
+    # Download NLTK punkt tokenizer if not already downloaded
+    import nltk
+    try:
+        nltk.data.find('tokenizers/punkt')
+    except LookupError:
+        nltk.download('punkt')
+        nltk.download('punkt_tab')
+    
+    # Split text into sentences using NLTK's sentence tokenizer
+    sentences = sent_tokenize(text)
+    
+    # Group sentences into paragraphs based on context
+    paragraphs = []
+    paragraph = []
+    current_length = 0
+
+    for sentence in sentences:
+        paragraph.append(sentence)
+        current_length += 1
+        # Determine paragraph boundary based on max_sentences or sentence-ending context
+        if current_length >= max_sentences or sentence.endswith(('"', "'", ':')):
+            paragraphs.append(' '.join(paragraph))
+            paragraph = []
+            current_length = 0
+    
+    # Add any remaining sentences as a paragraph
+    if paragraph:
+        paragraphs.append(' '.join(paragraph))
+
+    # Join paragraphs with double newlines
+    return '\n\n'.join(paragraphs)
+-e 
+
+--- File: ./transcripto/utils/__init__.py ---
+-e 
+
+--- File: ./transcripto/__init__.py ---
+__version__ = "1.0.0"
+-e 
+
+--- File: ./transcripto/__main__.py ---
+from .cli import cli_mode
+
+cli_mode()
+-e 
+

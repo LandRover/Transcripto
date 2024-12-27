@@ -23,7 +23,7 @@ class WhisperTranscriptor(TranscriptorBase):
 
         # Load audio
         try:
-            model = whisper.load_model("small")
+            model = whisper.load_model("turbo")
             result = model.transcribe(mp3_path, language="he", fp16=False, verbose=False)
             transcription = result["text"]
 
