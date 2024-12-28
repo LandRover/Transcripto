@@ -24,9 +24,8 @@ COPY *.py /app
 COPY requirements.txt /app/requirements.txt
 COPY transcripto /app/transcripto
 
-
 # Install dependencies
 RUN pip3 install --no-cache-dir -r /app/requirements.txt
 
 # Default command (can be overridden)
-CMD ["python3", "-m", "transcripto"]
+CMD ["python3", "-m", "transcripto", "--telegram-bot"]
