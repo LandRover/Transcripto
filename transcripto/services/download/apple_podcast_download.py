@@ -1,6 +1,7 @@
 import re
 import logging
 import requests
+import urllib.parse
 from .download_base import DownloadBase
 from .url_download import URLDownload
 from transcripto.utils.file_utils import extract_filename_from_url
@@ -8,10 +9,15 @@ from pathlib import Path
 
 class ApplePodcastDownload(DownloadBase):
     def get_filename(self, url):
-        filename = extract_filename_from_url(url)
-        
-        return filename
-    
+
+        # Parse the query parameters
+        query = urllib.parse.urlparse(url).query
+        params = urllib.parse.parse_qs(query)
+
+        # Extract the value of 'i'
+        return params.get('i', [None])[0]
+
+
     def download(self, url: str, temp_path: Path):
         logging.info(f"ApplePodcastDownload starting download {url}...")
 
