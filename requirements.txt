@@ -1,14 +1,26 @@
-openai
-pydub
-speechrecognition
-requests
-python-dotenv
-tqdm
-mutagen
-google-cloud-texttospeech
-openai-whisper
-gTTS
-yt_dlp
-python-telegram-bot
-nest_asyncio
-nltk
+# Core Libraries
+requests                 # HTTP requests library for making API calls
+python-dotenv            # Load environment variables from a .env file
+nest_asyncio             # Allows nested asyncio loops
+
+tqdm                     # Progress bar utility
+
+# AI and Machine Learning
+openai                   # OpenAI API for GPT and other models
+openai-whisper           # Whisper speech-to-text library
+nltk                     # Natural Language Toolkit for text processing
+
+# Audio Processing
+pydub                    # Audio manipulation library
+mutagen                  # Metadata handling for audio files
+gTTS                     # Google Text-to-Speech library
+speechrecognition        # Speech-to-text recognition
+
+# Cloud APIs
+google-cloud-texttospeech # Google Cloud Text-to-Speech API
+
+# Media Download
+yt_dlp                   # YouTube video downloader
+
+# Bot Development
+python-telegram-bot      # Telegram bot framework
