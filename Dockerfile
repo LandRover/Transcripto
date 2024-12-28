@@ -20,7 +20,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy the application code into the container
-COPY . /app
+COPY *.py /app
+COPY requirements.txt /app/requirements.txt
+COPY transcripto /app/transcripto
+
 
 # Install dependencies
 RUN pip3 install --no-cache-dir -r /app/requirements.txt
