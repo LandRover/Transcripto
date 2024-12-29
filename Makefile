@@ -19,7 +19,7 @@ docker_run:
 		--name transcripto-bot \
 		-v $$(pwd)/output:/app/output \
 		-v $$(pwd)/.env:/app/.env \
-		--gpus '"device=0"' \
+		--gpus all \
 		--env-file .env \
 		transcripto-app python -m transcripto --telegram-bot
 
