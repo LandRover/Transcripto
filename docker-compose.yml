@@ -2,10 +2,6 @@ services:
   transcripto-bot:
     image: transcripto-app
     container_name: transcripto-bot
-    runtime: nvidia
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     volumes:
       - ./output:/app/output
       - ./.env:/app/.env
@@ -14,6 +10,11 @@ services:
     command: python -m transcripto --telegram-bot
     deploy:
       resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
         limits:
           memory: 8g
           cpus: "4.0"
