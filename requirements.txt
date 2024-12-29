@@ -2,7 +2,6 @@
 requests                 # HTTP requests library for making API calls
 python-dotenv            # Load environment variables from a .env file
 nest_asyncio             # Allows nested asyncio loops
-
 tqdm                     # Progress bar utility
 
 # AI and Machine Learning
