@@ -2,5 +2,5 @@ from abc import ABC, abstractmethod
 
 class TranscriptorBase(ABC):
     @abstractmethod
-    def transcribe(self, mp3_path, temp_dir, title, language, force):
+    def transcribe(self, audio_path):
         pass

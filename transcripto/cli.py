@@ -81,8 +81,8 @@ def cli_mode():
                 args.tts_model,
                 args.force,
             )
-        print(f"Transcription completed. {'Summary saved.' if summary_text else ''}")
+        logging.info(f"Transcription completed. {'Summary saved.' if summary_text else ''}")
 
     except Exception as e:
-        print(f"Error: {e}")
+        logging.error(f"Error: {e}")
 

@@ -21,13 +21,8 @@ def process_transcription(
 
     # Select the transcriptor strategy
     transcriptor = TranscriptorFactory.get_transcriptor(transcript_engine)
-    transcription_output_text = transcriptor.transcribe(
-        audio_url,
-        temp_dir,
-        title,
-        language,
-        force
-    )
+    transcription_output = transcriptor.transcribe(audio_url)
+    transcription_output_text = transcription_output["text"]
 
     logging.info(f"Transcription completed in {time.time() - start_time:.2f} seconds.")
 

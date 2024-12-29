@@ -6,7 +6,7 @@ from .summarizer_base import SummarizerBase
 
 class OpenAISummarizer(SummarizerBase):
 
-    def get_guidelines_full_summary(self):
+    def get_guidelines_for_prompt_full_summary(self):
         guidelines = [
             {
                 "title": "Detail and Depth",
@@ -79,7 +79,7 @@ class OpenAISummarizer(SummarizerBase):
                     api_key = os.environ.get("OPENAI_API_KEY"),
                 )
 
-                guidelines = self.get_guidelines_full_summary()
+                guidelines = self.get_guidelines_for_prompt_full_summary()
                 prompt = (f"{guidelines}"
                             "\nText to to summerize:"
                             "\n" + text)
