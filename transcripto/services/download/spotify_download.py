@@ -57,7 +57,9 @@ class SpotifyDownload(DownloadBase):
         logging.info(f"SpotifyDownload Starting download {url}...")
         spotify_url = self.spotify_api.extract_media_from_url(url)
 
-        audio_url = self.spotify_api.get_episode_url(spotify_url.id)
+        episode_metadata = self.spotify_api.get_episode_metadata(spotify_url.id)
+        audio_url = episode_metadata.episode_audio_url
+        
         temp_file_encrypted = self.__get_temp_filepath(spotify_url.id, "encrypted", "m4a")
         temp_file_decrypted = self.__get_temp_filepath(spotify_url.id, "decrypted", "mp3")
       

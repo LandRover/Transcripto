@@ -67,16 +67,12 @@ class SpotifyAPI:
         episode_audio = self.session.get(self.EPISODE_AUDIO_API_URL.format(item_id = media_id))
         verify_response(episode_audio)
 
+        episode_audio_url = episode_audio.json()["url"].pop(0)
+
         return SpotifyDownloadItem(
             episode_info = episode_info.json(),
-            episode_audio = episode_audio.json(),
+            episode_audio_url = episode_audio_url,
         )
-
-
-    def get_episode_url(self, media_id: str) -> str:
-        episode = self.get_episode_metadata(media_id)
-
-        return episode.episode_audio["url"][0]
 
 
     def extract_media_from_url(self, url) -> list[SpotifyURL]:
