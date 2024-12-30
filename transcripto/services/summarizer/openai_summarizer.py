@@ -56,8 +56,8 @@ class OpenAISummarizer(SummarizerBase):
 
         for guideline in guidelines:
             prompt += f"{guideline['title']}:\n"
-            for focuse in guideline["focuses"]:
-                prompt += f"  * {focuse}\n"
+            for focus in guideline["focuses"]:
+                prompt += f"  * {focus}\n"
 
         return prompt
 
