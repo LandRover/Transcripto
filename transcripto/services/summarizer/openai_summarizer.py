@@ -97,10 +97,7 @@ class OpenAISummarizer(SummarizerBase):
                 )
                 
                 # Accessing the first message's content in the response
-                logging.info(response)
-                logging.info(response.model_dump())
                 summary = response.choices[0].message.content
-                logging.info(summary)
                 return summary.strip()
             except Exception as e:
                 if attempt < retries - 1:
