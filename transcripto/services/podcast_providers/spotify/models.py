@@ -9,5 +9,6 @@ class SpotifyURL:
 
 @dataclass
 class SpotifyDownloadItem:
-    episode_metadata: dict = None
+    episode_info: dict = None
+    episode_audio: dict = None
 
