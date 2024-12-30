@@ -34,6 +34,10 @@ class PocketCastsAPI:
             html = html_response.text
 
             patterns = [
+                {"key": "show_title", "pattern": r'<meta property="og:title" content="(.*?)">'},
+                {"key": "show_description", "pattern": r'<meta property="og:description" content="(.*?)">'},
+                {"key": "show_date", "pattern": r'<div id="episode_date">(.*?)</div>'},
+                {"key": "show_notes", "pattern": r'<div class="section show_notes">(.*?)</div>'},
                 {"key": "audio_url", "pattern": r'<audio[^>]*\s+src="([^"]+\.mp3[^"]*)"'},
             ]
 
