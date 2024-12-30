@@ -3,7 +3,7 @@ from pathlib import Path
 
 class DownloadBase(ABC):
     @abstractmethod
-    def get_filename(self, url):
+    def get_episode_id(self, url):
         pass
 
 

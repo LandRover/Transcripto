@@ -35,7 +35,7 @@ class SpotifyDownload(DownloadBase):
             self.subprocess_additional_args = {}
 
 
-    def get_filename(self, url):
+    def get_episode_id(self, url):
         filename = extract_filename_from_url(url)
 
         return filename

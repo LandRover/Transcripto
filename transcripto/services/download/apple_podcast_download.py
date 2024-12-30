@@ -8,7 +8,7 @@ from transcripto.utils.file_utils import extract_filename_from_url
 from pathlib import Path
 
 class ApplePodcastDownload(DownloadBase):
-    def get_filename(self, url):
+    def get_episode_id(self, url):
 
         # Parse the query parameters
         query = urllib.parse.urlparse(url).query

@@ -7,7 +7,7 @@ from .download_base import DownloadBase
 from pathlib import Path
 
 class YoutubeDownload(DownloadBase):
-    def get_filename(self, url):
+    def get_episode_id(self, url):
         youtube_regex = r'(?:v=|\/)([0-9A-Za-z_-]{11})(?:[&?\/]|$)'
         match = re.search(youtube_regex, url)
 

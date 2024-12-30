@@ -5,7 +5,7 @@ from .download_base import DownloadBase
 from transcripto.utils.file_utils import extract_filename_from_url
 
 class URLDownload(DownloadBase):
-    def get_filename(self, url):
+    def get_episode_id(self, url):
         filename = extract_filename_from_url(url)
 
         return filename

@@ -14,7 +14,7 @@ def process_download(url, force=False):
     logging.info(f"Starting download {url}...")
 
     downloader = DownloadFactory.get_download_engine(url)
-    target_filename = downloader.get_filename(url)
+    target_filename = downloader.get_episode_id(url)
 
     base_filename = f"{target_filename}_raw"
     output_file = get_output_file(base_filename, "mp3")
