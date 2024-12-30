@@ -15,13 +15,13 @@ def throw_exception(response: requests.Response):
     )
 
 
+import re
+
 def is_valid_url(url):
-    # Simple regex pattern to validate a URL
     url_pattern = re.compile(
-        r'^(https?:\/\/)'  # http:// or https://
-        r'(([\da-z.-]+)\.([a-z.]{2,6}))'  # domain name
-        r'(\/[\w\-.~:%]*)*$',  # optional path
+        r'^(https?:\/\/)'        # http:// or https://
+        r'.*'                    # Match anything after https://
+        r'\.mp3(\?.*)?$',        # Ensure .mp3 is in the URL, optionally followed by query parameters
         re.IGNORECASE
     )
     return re.match(url_pattern, url) is not None
-

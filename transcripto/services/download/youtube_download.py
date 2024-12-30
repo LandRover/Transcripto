@@ -4,14 +4,21 @@ import re
 import os
 import yt_dlp
 from .download_base import DownloadBase
+from transcripto.services.podcast_providers.youtube.youtube_api import YoutubeAPI
 from pathlib import Path
 
 class YoutubeDownload(DownloadBase):
-    def get_episode_id(self, url):
-        youtube_regex = r'(?:v=|\/)([0-9A-Za-z_-]{11})(?:[&?\/]|$)'
-        match = re.search(youtube_regex, url)
+    provider = {}
 
-        return match.group(1) if match else None
+
+    def __init__(self):
+        self.provider = YoutubeAPI()
+
+
+    def get_episode_id(self, url):
+        url_parts = self.provider.extract_media_from_url(url)
+
+        return url_parts.id
 
 
     def download(self, url: str, temp_path: Path):
@@ -19,6 +26,9 @@ class YoutubeDownload(DownloadBase):
         output_filename_format = '%(id)s - %(title)s (%(uploader)s) (%(id)s) (%(upload_date)s).%(ext)s'
 
         try:
+            episode_metadata = self.provider.get_episode_metadata(url)
+            episode_audio_url = episode_metadata.episode_audio_url
+
             # Create an in-memory buffer
             buffer = io.BytesIO()
 
@@ -36,7 +46,7 @@ class YoutubeDownload(DownloadBase):
 
             # Download audio
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info_dict = ydl.extract_info(url, download=True)
+                info_dict = ydl.extract_info(episode_audio_url, download=True)
                 file_path = ydl.prepare_filename(info_dict)
                 file_path = os.path.splitext(file_path)[0] + ".mp3"  # Adjust for postprocessor
 

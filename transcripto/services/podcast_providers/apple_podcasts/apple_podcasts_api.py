@@ -7,7 +7,7 @@ from transcripto.utils.http import verify_response
 from .models import ApplePodcastsURL, ApplePodcastsDownloadItem
 
 class ApplePodcastsAPI:
-    APPLE_PODCASTS_HOME_PAGE_URL = "https://open.spotify.com"
+    APPLE_PODCASTS_HOME_PAGE_URL = "https://podcasts.apple.com/"
 
 
     def __init__(self):
