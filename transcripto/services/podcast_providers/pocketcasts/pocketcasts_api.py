@@ -47,7 +47,6 @@ class PocketCastsAPI:
                     except json.JSONDecodeError as e:
                         extracted_data[item["key"]] = match_str
 
-            print(extracted_data)
         except requests.RequestException as e:
             logging.error(f"Failed to fetch episode data: {e}")
             raise
