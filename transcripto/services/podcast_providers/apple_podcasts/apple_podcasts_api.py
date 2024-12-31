@@ -50,7 +50,7 @@ class ApplePodcastsAPI:
             "episode_genre": extracted_data["schema_episode"].get("genre", [None])[0] if extracted_data["schema_episode"].get("genre") else None,
             "episode_date": extracted_data["schema_episode"].get("datePublished"),
             "episode_url": extracted_data["schema_episode"].get("url"),
-            "show_company": extracted_data["schema_episode"].get("productionCompany"),
+            "show_author": extracted_data["schema_episode"].get("productionCompany"),
             "show_name": extracted_data["schema_episode"].get("partOfSeries", {}).get("name"),
             "show_cover": extracted_data["schema_episode"].get("thumbnailUrl"),
             "show_url": extracted_data["schema_episode"].get("partOfSeries", {}).get("url"),
