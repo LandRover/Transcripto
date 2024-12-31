@@ -2,7 +2,7 @@ import os
 import logging
 import time
 from transcripto.services.text_to_speech.text_to_speech_factory import TextToSpeechFactory
-from transcripto.utils.file_utils import save_to_file, get_output_file
+from transcripto.utils.file import save_to_file, get_output_file
 
 def process_tts(
         title, text, tts_engine="openai_gpt", tts_model="gpt-4o-audio-preview", force=False, voice="alloy", format="mp3"

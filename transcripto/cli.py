@@ -7,7 +7,7 @@ from transcripto.handlers.transcription_handler import process_transcription
 from transcripto.handlers.summarization_handler import process_summarization
 from transcripto.handlers.download_handler import process_download
 from config import setup_logging, TEMP_DIR, OUTPUT_DIR
-from transcripto.utils.file_utils import ensure_directories
+from transcripto.utils.file import ensure_directories
 from .telegram_bot import start_loop_bot
 import asyncio
 

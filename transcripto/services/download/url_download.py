@@ -2,7 +2,7 @@ import logging
 import requests
 from pathlib import Path
 from .download_base import DownloadBase
-from transcripto.utils.file_utils import extract_filename_from_url
+from transcripto.utils.file import extract_filename_from_url
 
 class URLDownload(DownloadBase):
     def get_episode_id(self, url):

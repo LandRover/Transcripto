@@ -2,7 +2,7 @@ import os
 import logging
 import time
 from transcripto.services.transcriptors.transcriptor_factory import TranscriptorFactory
-from transcripto.utils.file_utils import save_to_file, get_output_file
+from transcripto.utils.file import save_to_file, get_output_file
 from transcripto.utils.text import split_text_into_paragraphs
 
 def process_transcription(

@@ -2,7 +2,7 @@ import os
 import time
 import logging
 from transcripto.services.summarizer.summarizer_factory import SummarizerFactory
-from transcripto.utils.file_utils import save_to_file, get_output_file
+from transcripto.utils.file import save_to_file, get_output_file
 
 def sanitize_text(text: str) -> str:
         """

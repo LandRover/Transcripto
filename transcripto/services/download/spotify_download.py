@@ -6,7 +6,7 @@ import shutil
 import subprocess
 from pathlib import Path
 from .download_base import DownloadBase
-from transcripto.utils.file_utils import extract_filename_from_url
+from transcripto.utils.file import extract_filename_from_url
 from yt_dlp.downloader.http import HttpFD
 from yt_dlp.YoutubeDL import YoutubeDL
 from transcripto.services.podcast_providers.spotify.spotify_api import SpotifyAPI

@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from config import TEMP_DIR, OUTPUT_DIR
 from transcripto.services.download.download_factory import DownloadFactory
-from transcripto.utils.file_utils import save_to_file, get_output_file
+from transcripto.utils.file import save_to_file, get_output_file
 from transcripto.handlers.metadata_handler import fetch_audio_metadata
 
 

@@ -1,6 +1,6 @@
 import logging
 import requests
-from transcripto.utils.file_utils import extract_filename_from_url
+from transcripto.utils.file import extract_filename_from_url
 from transcripto.utils.http import verify_response
 from transcripto.utils.json import match_patterns
 from .models import PocketCastsURL, PocketCastsDownloadItem
