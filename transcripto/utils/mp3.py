@@ -1,7 +1,7 @@
 import logging
 from mutagen.mp3 import MP3
 
-def fetch_audio_metadata(filepath):
+def get_audio_metadata(filepath):
     """
     Fetch metadata from an MP3 file.
 
