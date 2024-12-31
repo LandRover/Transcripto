@@ -1,9 +1,8 @@
-import re
 import logging
-import json
 import requests
 from urllib.parse import urlparse, parse_qs
 from transcripto.utils.http import verify_response
+from transcripto.utils.json import match_patterns
 from .models import ApplePodcastsURL, ApplePodcastsDownloadItem
 
 class ApplePodcastsAPI:
@@ -31,28 +30,17 @@ class ApplePodcastsAPI:
             html_response = requests.get(url, stream=True)
             verify_response(html_response)
 
-            html = html_response.text
-
-            patterns = [
+            extractor_patterns = [
                 {"key": "schema_episode", "pattern": r'<script id=schema:episode type="application/ld\+json">(.*?)</script>'},
                 {"key": "serialized_server_data", "pattern": r'<script type="application/json" id="serialized-server-data">(.*?)</script>'}
             ]
 
-            extracted_data = {}
-            for item in patterns:
-                match = re.search(item["pattern"], html, re.DOTALL)
-                if match:
-                    json_str = match.group(1).strip()
-                    try:
-                        extracted_data[item["key"]] = json.loads(json_str)
-                    except json.JSONDecodeError as e:
-                        logging.error(f"Error decoding JSON for {item['key']}: {e}")
-                        raise
-
+            extracted_data = match_patterns(html_response.text, extractor_patterns)
+        
         except requests.RequestException as e:
             logging.error(f"Failed to fetch episode data: {e}")
             raise
-        
+
         return ApplePodcastsDownloadItem(
             episode_info = extracted_data["schema_episode"],
             episode_audio_url = extracted_data["serialized_server_data"][0]["data"]["shelves"][0]["items"][0]["contextAction"]["episodeOffer"]["streamUrl"],

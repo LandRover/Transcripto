@@ -1,9 +1,8 @@
-import re
 import logging
-import json
 import requests
 from transcripto.utils.file_utils import extract_filename_from_url
 from transcripto.utils.http import verify_response
+from transcripto.utils.json import match_patterns
 from .models import PocketCastsURL, PocketCastsDownloadItem
 
 class PocketCastsAPI:
@@ -31,9 +30,7 @@ class PocketCastsAPI:
             html_response = requests.get(url, stream=True)
             verify_response(html_response)
 
-            html = html_response.text
-
-            patterns = [
+            extractor_patterns = [
                 {"key": "show_title", "pattern": r'<meta property="og:title" content="(.*?)">'},
                 {"key": "show_description", "pattern": r'<meta property="og:description" content="(.*?)">'},
                 {"key": "show_date", "pattern": r'<div id="episode_date">(.*?)</div>'},
@@ -41,15 +38,7 @@ class PocketCastsAPI:
                 {"key": "audio_url", "pattern": r'<audio[^>]*\s+src="([^"]+\.mp3[^"]*)"'},
             ]
 
-            extracted_data = {}
-            for item in patterns:
-                match = re.search(item["pattern"], html, re.DOTALL)
-                if match:
-                    match_str = match.group(1).strip()
-                    try:
-                        extracted_data[item["key"]] = json.loads(match_str)
-                    except json.JSONDecodeError as e:
-                        extracted_data[item["key"]] = match_str
+            extracted_data = match_patterns(html_response.text, extractor_patterns)
 
         except requests.RequestException as e:
             logging.error(f"Failed to fetch episode data: {e}")

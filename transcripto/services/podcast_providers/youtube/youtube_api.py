@@ -1,9 +1,8 @@
 import re
 import logging
-import json
 import requests
-from urllib.parse import urlparse, parse_qs
 from transcripto.utils.http import verify_response
+from transcripto.utils.json import match_patterns
 from .models import YoutubeURL, YoutubeDownloadItem
 
 class YoutubeAPI:
@@ -31,22 +30,11 @@ class YoutubeAPI:
             html_response = requests.get(url, stream=True)
             verify_response(html_response)
 
-            html = html_response.text
-
-            patterns = [
+            extractor_patterns = [
                 {"key": "ytInitialPlayerResponse", "pattern": r'<script nonce="[^"]+">var ytInitialPlayerResponse = ({.*?});<\/script>'},
             ]
 
-            extracted_data = {}
-            for item in patterns:
-                match = re.search(item["pattern"], html, re.DOTALL)
-                if match:
-                    json_str = match.group(1).strip()
-                    try:
-                        extracted_data[item["key"]] = json.loads(json_str)
-                    except json.JSONDecodeError as e:
-                        logging.error(f"Error decoding JSON for {item['key']}: {e}")
-                        raise
+            extracted_data = match_patterns(html_response.text, extractor_patterns)
 
         except requests.RequestException as e:
             logging.error(f"Failed to fetch episode data: {e}")
