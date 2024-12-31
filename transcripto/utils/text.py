@@ -44,3 +44,22 @@ def split_text_into_paragraphs(text, max_sentences=5):
 
     # Join paragraphs with double newlines
     return '\n\n'.join(paragraphs)
+
+
+def strip_html_tags(text):
+    """
+    Strips all HTML tags from the given text.
+    
+    Args:
+        text (str): The input string containing HTML tags.
+        
+    Returns:
+        str: The text with all HTML tags removed.
+    """
+    if not text:
+        return ""
+    # Remove all HTML tags
+    clean_text = re.sub(r'<[^>]+>', '', text)
+    # Unescape HTML entities
+    clean_text = re.sub(r'&[#\w]+;', '', clean_text)  # Removes entities like &#39; and &nbsp;
+    return clean_text.strip()
