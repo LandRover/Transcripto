@@ -1,5 +1,9 @@
 # Transcripto: Transcribe and Summarize Podcasts
 
+<center>
+   ![Transcripto Logo](static/images/logo.png)
+</center>
+
 **Transcripto** is an open-source tool designed to summarize podcast episodes into concise, actionable insights using AI. By distilling hours of audio into key takeaways, Transcripto makes it easy to share or review podcast content quickly and effectively. It's perfect for personal productivity, content creators, or organizations looking to streamline information sharing.
 
 ---

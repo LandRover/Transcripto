@@ -36,10 +36,10 @@ class PocketCastsAPI:
             extractor_patterns = [
                 {"key": "episode_title", "pattern": r'<meta property="og:title" content="(.*?)">'},
                 {"key": "episode_description", "pattern": r'<meta property="og:description" content="(.*?)">'},
+                {"key": "episode_uuid", "pattern": r"var EPISODE_UUID = '([a-f0-9\-]+)';"},
                 {"key": "episode_date", "pattern": r'<div id="episode_date">(.*?)</div>'},
                 {"key": "show_cover", "pattern": r'<div id="artwork">.*?<img[^>]*\s+src="([^"]+)"'},
                 {"key": "show_notes", "pattern": r'<div class="section show_notes">(.*?)</div>'},
-                {"key": "episode_uuid", "pattern": r"var EPISODE_UUID = '([a-f0-9\-]+)';"},
                 {"key": "audio_url", "pattern": r'<audio[^>]*\s+src="([^"]+\.mp3[^"]*)"'},
             ]
 
