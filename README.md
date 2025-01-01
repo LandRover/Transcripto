@@ -1,6 +1,6 @@
 # Transcripto: Transcribe and Summarize Podcasts
 
-<div align="center">>
+<div align="center">
    <img src="static/images/logo.png" alt="Transcripto Logo" />
 </div>
 
