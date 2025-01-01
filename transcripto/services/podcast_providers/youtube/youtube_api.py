@@ -37,16 +37,21 @@ class YoutubeAPI:
             extracted_data = match_patterns(html_response.text, extractor_patterns)
 
             episode_info = {
-                "episode_title": extracted_data["ytInitialPlayerResponse"].get("microformat").get("playerMicroformatRenderer").get("title").get("simpleText"),
-                "episode_description": extracted_data["ytInitialPlayerResponse"].get("microformat").get("playerMicroformatRenderer").get("description").get("simpleText"),
-                "episode_duration": extracted_data["ytInitialPlayerResponse"].get("microformat").get("playerMicroformatRenderer").get("lengthSeconds"),
-                "episode_genre": extracted_data["ytInitialPlayerResponse"].get("microformat").get("playerMicroformatRenderer").get("category"),
-                "episode_date": extracted_data["ytInitialPlayerResponse"].get("microformat").get("playerMicroformatRenderer").get("uploadDate"),
-                "episode_views": extracted_data["ytInitialPlayerResponse"].get("microformat").get("playerMicroformatRenderer").get("viewCount"),
-                "show_id": extracted_data["ytInitialPlayerResponse"].get("microformat").get("playerMicroformatRenderer").get("externalChannelId"),
-                "show_author": extracted_data["ytInitialPlayerResponse"].get("microformat").get("playerMicroformatRenderer").get("ownerChannelName"),
-                "show_cover": extracted_data["ytInitialPlayerResponse"].get("microformat").get("playerMicroformatRenderer").get("thumbnail").get("thumbnails").pop().get("url"),
-                "show_url": extracted_data["ytInitialPlayerResponse"].get("microformat").get("playerMicroformatRenderer").get("ownerProfileUrl"),
+                "episode": {
+                    "id": extracted_data["ytInitialPlayerResponse"].get("videoDetails", {}).get("videoId"),
+                    "title": extracted_data["ytInitialPlayerResponse"].get("microformat", {}).get("playerMicroformatRenderer", {}).get("title").get("simpleText"),
+                    "description": extracted_data["ytInitialPlayerResponse"].get("microformat", {}).get("playerMicroformatRenderer", {}).get("description").get("simpleText"),
+                    "duration": extracted_data["ytInitialPlayerResponse"].get("microformat", {}).get("playerMicroformatRenderer", {}).get("lengthSeconds"),
+                    "genre": extracted_data["ytInitialPlayerResponse"].get("microformat", {}).get("playerMicroformatRenderer", {}).get("category"),
+                    "date": extracted_data["ytInitialPlayerResponse"].get("microformat", {}).get("playerMicroformatRenderer", {}).get("uploadDate"),
+                    "views": extracted_data["ytInitialPlayerResponse"].get("microformat", {}).get("playerMicroformatRenderer", {}).get("viewCount"),
+                },
+                "show": {
+                    "id": extracted_data["ytInitialPlayerResponse"].get("microformat", {}).get("playerMicroformatRenderer").get("externalChannelId"),
+                    "author": extracted_data["ytInitialPlayerResponse"].get("microformat", {}).get("playerMicroformatRenderer").get("ownerChannelName"),
+                    "cover": extracted_data["ytInitialPlayerResponse"].get("microformat", {}).get("playerMicroformatRenderer").get("thumbnail").get("thumbnails").pop().get("url"),
+                    "url": extracted_data["ytInitialPlayerResponse"].get("microformat", {}).get("playerMicroformatRenderer").get("ownerProfileUrl"),
+                },
             }
 
         except requests.RequestException as e:

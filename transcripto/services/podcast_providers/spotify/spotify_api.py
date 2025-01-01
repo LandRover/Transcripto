@@ -62,15 +62,38 @@ class SpotifyAPI:
         self.__refresh_access_token()
         
         episode_info = self.session.get(self.EPISODE_INFO_API_URL.format(type = "episodes", item_id = media_id))
+        episode_info.encoding = 'utf-8'
         verify_response(episode_info)
 
         episode_audio = self.session.get(self.EPISODE_AUDIO_API_URL.format(item_id = media_id))
+        episode_audio.encoding = 'utf-8'
         verify_response(episode_audio)
 
         episode_audio_url = episode_audio.json()["url"].pop(0)
+        extracted_data = episode_info.json()
+
+        episode_info = {
+            "episode": {
+                "id": extracted_data.get("id"),
+                "title": extracted_data.get("name"),
+                "description": extracted_data.get("description"),
+                "duration": extracted_data.get("duration_ms"),
+                "date": extracted_data.get("release_date"),
+                "url": extracted_data.get("external_urls").get("spotify"),
+            },
+            "show": {
+                "id": extracted_data.get("show", {}).get("id"),
+                "author": extracted_data.get("show", {}).get("publisher"),
+                "title": extracted_data.get("show", {}).get("name"),
+                "description": extracted_data.get("show", {}).get("description"),
+                "cover": extracted_data.get("show", {}).get("images").pop(0).get("url"),
+                "url": extracted_data.get("show", {}).get("external_urls").get("spotify"),
+                "total_episodes": extracted_data.get("show", {}).get("total_episodes"),
+            },
+        }
 
         return SpotifyDownloadItem(
-            episode_info = episode_info.json(),
+            episode_info = episode_info,
             episode_audio_url = episode_audio_url,
         )
 

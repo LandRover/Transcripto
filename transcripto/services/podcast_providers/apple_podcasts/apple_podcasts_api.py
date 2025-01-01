@@ -43,17 +43,21 @@ class ApplePodcastsAPI:
             raise
 
         episode_info = {
-            "episode_number": extracted_data["schema_episode"].get("episodeNumber"),
-            "episode_title": extracted_data["schema_episode"].get("name"),
-            "episode_description": extracted_data["schema_episode"].get("description"),
-            "episode_duration": extracted_data["schema_episode"].get("duration"),
-            "episode_genre": extracted_data["schema_episode"].get("genre", [None])[0] if extracted_data["schema_episode"].get("genre") else None,
-            "episode_date": extracted_data["schema_episode"].get("datePublished"),
-            "episode_url": extracted_data["schema_episode"].get("url"),
-            "show_author": extracted_data["schema_episode"].get("productionCompany"),
-            "show_name": extracted_data["schema_episode"].get("partOfSeries", {}).get("name"),
-            "show_cover": extracted_data["schema_episode"].get("thumbnailUrl"),
-            "show_url": extracted_data["schema_episode"].get("partOfSeries", {}).get("url"),
+            "episode": {
+                "number": extracted_data["schema_episode"].get("episodeNumber"),
+                "title": extracted_data["schema_episode"].get("name"),
+                "description": extracted_data["schema_episode"].get("description"),
+                "duration": extracted_data["schema_episode"].get("duration"),
+                "genre": extracted_data["schema_episode"].get("genre", [None])[0] if extracted_data["schema_episode"].get("genre") else None,
+                "date": extracted_data["schema_episode"].get("datePublished"),
+                "url": extracted_data["schema_episode"].get("url"),
+            },
+            "show": {
+                "author": extracted_data["schema_episode"].get("productionCompany"),
+                "title": extracted_data["schema_episode"].get("partOfSeries", {}).get("name"),
+                "cover": extracted_data["schema_episode"].get("thumbnailUrl"),
+                "url": extracted_data["schema_episode"].get("partOfSeries", {}).get("url"),
+            },
         }
 
         return ApplePodcastsDownloadItem(

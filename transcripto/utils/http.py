@@ -15,8 +15,6 @@ def throw_exception(response: requests.Response):
     )
 
 
-import re
-
 def is_valid_url(url):
     url_pattern = re.compile(
         r'^(https?:\/\/)'        # http:// or https://
@@ -24,4 +22,5 @@ def is_valid_url(url):
         r'\.mp3(\?.*)?$',        # Ensure .mp3 is in the URL, optionally followed by query parameters
         re.IGNORECASE
     )
+    
     return re.match(url_pattern, url) is not None

@@ -50,11 +50,15 @@ class PocketCastsAPI:
             raise
         
         episode_info = {
-            "episode_title": extracted_data["episode_title"],
-            "episode_description": extracted_data["episode_description"],
-            "episode_date": extracted_data["episode_date"],
-            "episode_uuid": extracted_data["episode_uuid"],
-            "show_notes": strip_html_tags(self.__get_episode_show_notes(extracted_data["episode_uuid"])),
+            "episode": {
+                "uuid": extracted_data["episode_uuid"],
+                "title": extracted_data["episode_title"],
+                "date": extracted_data["episode_date"],
+                "description": strip_html_tags(self.__get_episode_show_notes(extracted_data["episode_uuid"])),
+            },
+            "show": {
+                "description": extracted_data["episode_description"],
+            }
         }
 
         return PocketCastsDownloadItem(
