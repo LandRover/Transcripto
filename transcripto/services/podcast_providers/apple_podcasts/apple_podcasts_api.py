@@ -27,7 +27,7 @@ class ApplePodcastsAPI:
 
     def get_episode_metadata(self, url: str) -> list[ApplePodcastsDownloadItem]:
         try:
-            html_response = requests.get(url, stream=True)
+            html_response = self.session.get(url, stream=True)
             html_response.encoding = 'utf-8'
             verify_response(html_response)
 

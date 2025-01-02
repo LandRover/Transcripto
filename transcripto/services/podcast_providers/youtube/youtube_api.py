@@ -27,7 +27,7 @@ class YoutubeAPI:
 
     def get_episode_metadata(self, url: str) -> list[YoutubeDownloadItem]:
         try:
-            html_response = requests.get(url, stream=True)
+            html_response = self.session.get(url, stream=True)
             verify_response(html_response)
 
             extractor_patterns = [
