@@ -62,7 +62,7 @@ def cli_mode():
             force=args.force
         )
 
-        summary = None
+        summary_text = None
         if args.summarize:
             summary_text = process_summarization(
                 transcription_text,
