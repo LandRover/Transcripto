@@ -8,7 +8,7 @@ clean:
 run:
 	@python -m transcripto --telegram-bot
 
-packages:
+build:
 	@pip install -e .
 
 docker_build:
