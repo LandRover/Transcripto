@@ -22,7 +22,6 @@ class SpotifyAPI:
             "accept": "application/json",
             "accept-language": "en-US",
             "app-platform": "WebPlayer",
-            "content-type": "application/json",
             "origin": self.SPOTIFY_HOME_PAGE_URL,
             "referer": self.SPOTIFY_HOME_PAGE_URL,
             "spotify-app-version": self.SPOTIFY_APP_VERSION,
