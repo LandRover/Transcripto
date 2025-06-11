@@ -1,52 +1,76 @@
 import re
 import time
 import requests
+from syrics.totp import TOTP
 from transcripto.utils.http import verify_response
 from .models import SpotifyURL, SpotifyDownloadItem
+from transcripto.exceptions import TOTPGenerationException
 
 class SpotifyAPI:
-    SPOTIFY_TOKEN_URL = 'https://open.spotify.com/get_access_token?reason=transport&productType=web-player'
-    SPOTIFY_APP_VERSION = "1.2.54.219.g19a93a5d" # 24/12/2024
     SPOTIFY_HOME_PAGE_URL = "https://open.spotify.com"
+    SPOTIFY_TOKEN_URL = "https://open.spotify.com/api/token"
+    SPOTIFY_SERVER_TIME_URL = "https://open.spotify.com/api/server-time"
+    SPOTIFY_APP_VERSION = "1.2.66.328.g8b32269e" # 11/06/2025
     EPISODE_INFO_API_URL = "https://api.spotify.com/v1/{type}/{item_id}"
     EPISODE_AUDIO_API_URL = "https://spclient.wg.spotify.com/soundfinder/v1/unauth/episode/{item_id}/com.widevine.alpha?market=from_token"
 
+    HEADERS = {
+            "accept": "application/json",
+            "accept-language": "en-US",
+            "content-type": "application/json",
+            "origin": SPOTIFY_HOME_PAGE_URL,
+            "referer": SPOTIFY_HOME_PAGE_URL,
+            "priority": "u=1, i",
+            "sec-ch-ua": '"Not)A;Brand";v="99", "Google Chrome";v="127", "Chromium";v="127"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-site",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+            "spotify-app-version": SPOTIFY_APP_VERSION,
+            "app-platform": "WebPlayer",
+        }
+
 
     def __init__(self):
+        self.totp = TOTP()
         self.__apply_requests_session()
 
 
     def __apply_requests_session(self):
         self.session = requests.Session()
-        self.session.headers.update({
-            "accept": "application/json",
-            "accept-language": "en-US",
-            "app-platform": "WebPlayer",
-            "origin": self.SPOTIFY_HOME_PAGE_URL,
-            "referer": self.SPOTIFY_HOME_PAGE_URL,
-            "spotify-app-version": self.SPOTIFY_APP_VERSION,
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        })
+        self.session.headers.update(self.HEADERS)
         self.__get_access_token()
 
 
     def __get_access_token(self):
-        token_request = self.session.get(url = self.SPOTIFY_TOKEN_URL)
+        try:
+            server_time_response = self.session.get(self.SPOTIFY_SERVER_TIME_URL)
+            server_time = 1e3 * server_time_response.json().get("serverTime")
+            totp = self.totp.generate(timestamp=server_time)
 
-        if token_request.status_code != 200:
-            return None
-        
-        token_json = token_request.json()
-        self.session_info = token_json
-        access_token = token_json.get('accessToken')
+            params = {
+                "reason": "init",
+                "productType": "web-player",
+                "totp": totp,
+                "totpVer": str(self.totp.version),
+                "ts": str(server_time),
+            }
 
-        self.session.headers.update({
-            "Authorization": f"Bearer {access_token}",
-        })
+        except Exception as e:
+            raise TOTPGenerationException("Error generating TOTP, retry!") from e
+
+        token_request = self.session.get(self.SPOTIFY_TOKEN_URL, params=params)
+        token = token_request.json()
+        self.session_info = token
+        access_token = token.get('accessToken')
+
+        self.session.headers['authorization'] = f"Bearer {access_token}"
 
         return access_token
 
-
+        
     def __refresh_access_token(self):
         timestamp_session_expire = int(self.session_info["accessTokenExpirationTimestampMs"])
 
