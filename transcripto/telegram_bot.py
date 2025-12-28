@@ -16,8 +16,8 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 # Define a function to handle messages starting with 'https://'
 async def url_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     transcription_engine = "wisper"
-    summarization_engine = "openai"
-    summarization_model = "gpt-4o-mini"
+    summarization_engine = "vertex"
+    summarization_model = "gemini-3-pro-preview"
     url = update.message.text
 
     status_update_message = await update.message.reply_text(f"Downloading {url}")

@@ -35,7 +35,7 @@ def process_summarization(text, title, summarizer_engine="openai", summarizer_mo
     summary_output_text = sanitize_text(summarizer.summarize_text(
         text,
         summarizer_model,
-        max_tokens = 1024,
+        max_tokens = 10240,
         temperature = 0.1,
         retries = 3,
         delay = 2

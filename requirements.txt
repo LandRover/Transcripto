@@ -17,6 +17,7 @@ speechrecognition        # Speech-to-text recognition
 
 # Cloud APIs
 google-cloud-texttospeech # Google Cloud Text-to-Speech API
+google-generativeai       # Google Gemini API with API key auth
 
 # Media Download
 yt_dlp                   # YouTube video downloader

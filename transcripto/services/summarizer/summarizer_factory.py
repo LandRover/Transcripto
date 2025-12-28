@@ -1,9 +1,11 @@
 from .openai_summarizer import OpenAISummarizer
+from .vertex_summarizer import VertexSummarizer
 
 
 class SummarizerFactory:
     summarizers_engines_mapping = {
         "openai": OpenAISummarizer,
+        "vertex": VertexSummarizer,
     }
 
     @staticmethod
