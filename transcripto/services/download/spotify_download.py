@@ -20,6 +20,7 @@ class SpotifyDownload(DownloadBase):
     TEMP_FILE_STRUCTURE = "{file_id}_{encryption_state}.{ext}"
 
     def __init__(self):
+        print("SpotifyDownload initialized")
         self.spotify_api = SpotifyAPI()
         self.ffmpeg_path = shutil.which("ffmpeg")
         self._set_subprocess_additional_args()

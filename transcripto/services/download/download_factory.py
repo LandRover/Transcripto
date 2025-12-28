@@ -5,6 +5,8 @@ from .spotify_download import SpotifyDownload
 from .youtube_download import YoutubeDownload
 from .apple_podcast_download import ApplePodcastDownload
 from .pocketcasts_download import PocketCastsDownload
+from .text_download import TextDownload
+
 
 class DownloadFactory:
     # Mapping of patterns to download engine classes
@@ -14,6 +16,7 @@ class DownloadFactory:
         (re.compile(r'^https?://(podcasts\.)?apple\.com/.*'), ApplePodcastDownload),
         (re.compile(r'^https://pca\.st/episode/[a-f0-9\-]+$'), PocketCastsDownload),
         (re.compile(r'^https://.*\.mp3$'), URLDownload),
+        (re.compile(rf'^https://(?:www\.)?(?:{TextDownload.TEXT_SUPPORTED_DOMAINS})(?:/.*)?$'), TextDownload),
     ]
 
 
