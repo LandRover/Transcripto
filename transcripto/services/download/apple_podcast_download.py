@@ -8,6 +8,8 @@ from transcripto.utils.http import is_valid_url
 from pathlib import Path
 
 class ApplePodcastDownload(DownloadBase):
+    APPLE_PODCASTS_HOME_PAGE_URL = "https://podcasts.apple.com/"
+    
     provider = {}
     url_downloader = {}
 
@@ -31,7 +33,12 @@ class ApplePodcastDownload(DownloadBase):
         
             if is_valid_url(episode_audio_url):
                 logging.info(f"Detected a url for a podcast episode {episode_audio_url}, Offloading to URLDownload")
-                mp3_content = self.url_downloader.download(episode_audio_url, temp_path)
+                # Apple Podcasts CDN requires proper headers including Referer
+                audio_headers = {
+                    "referer": self.APPLE_PODCASTS_HOME_PAGE_URL,
+                    "origin": self.APPLE_PODCASTS_HOME_PAGE_URL,
+                }
+                mp3_content = self.url_downloader.download(episode_audio_url, temp_path, headers=audio_headers)
                 return mp3_content
             else:
                 logging.error(f"Episode failed to detect a valid url: {episode_audio_url} from this podcast: {url}")

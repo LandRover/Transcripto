@@ -7,6 +7,55 @@ from telegram import Update
 from telegram.ext import filters, CommandHandler, MessageHandler, Application, ContextTypes
 from config import TEMP_DIR
 
+# Telegram message limit is 4096 characters
+TELEGRAM_MAX_MESSAGE_LENGTH = 4096
+
+
+def split_message(text: str, max_length: int = TELEGRAM_MAX_MESSAGE_LENGTH) -> list[str]:
+    """Split a long message into chunks that fit within Telegram's message limit."""
+    if len(text) <= max_length:
+        return [text]
+    
+    chunks = []
+    current_chunk = ""
+    
+    # Split by paragraphs first (double newlines)
+    paragraphs = text.split('\n\n')
+    
+    for paragraph in paragraphs:
+        # If adding this paragraph would exceed the limit
+        if len(current_chunk) + len(paragraph) + 2 > max_length:
+            # If current chunk has content, save it
+            if current_chunk:
+                chunks.append(current_chunk.strip())
+                current_chunk = ""
+            
+            # If the paragraph itself is too long, split by lines
+            if len(paragraph) > max_length:
+                lines = paragraph.split('\n')
+                for line in lines:
+                    if len(current_chunk) + len(line) + 1 > max_length:
+                        if current_chunk:
+                            chunks.append(current_chunk.strip())
+                            current_chunk = ""
+                        # If single line is too long, force split
+                        if len(line) > max_length:
+                            for i in range(0, len(line), max_length):
+                                chunks.append(line[i:i + max_length])
+                        else:
+                            current_chunk = line
+                    else:
+                        current_chunk += ("\n" if current_chunk else "") + line
+            else:
+                current_chunk = paragraph
+        else:
+            current_chunk += ("\n\n" if current_chunk else "") + paragraph
+    
+    if current_chunk:
+        chunks.append(current_chunk.strip())
+    
+    return chunks
+
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         'I can summuraize a raw mp3, podcast, youtube video or a spotify podcast when sending a valid url\n/help - Get help information'
@@ -65,12 +114,19 @@ async def url_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         summarization_model,
     )
 
-    # status update
+    # Split summary into chunks if it exceeds Telegram's message limit
+    summary_chunks = split_message(summary_text)
+    
+    # Update the first message with the first chunk
     await context.bot.edit_message_text(
         chat_id=status_update_message.chat_id,
         message_id=status_update_message.message_id,
-        text=f"{summary_text}"
+        text=summary_chunks[0]
     )
+    
+    # Send remaining chunks as new messages
+    for chunk in summary_chunks[1:]:
+        await update.message.reply_text(chunk)
 
 
 async def start_loop_bot(API_TOKEN) -> None:
