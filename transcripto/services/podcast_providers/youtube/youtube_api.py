@@ -1,8 +1,8 @@
 import re
+import json
 import logging
 import requests
 from transcripto.utils.http import verify_response
-from transcripto.utils.json import match_patterns
 from .models import YoutubeURL, YoutubeDownloadItem
 
 class YoutubeAPI:
@@ -24,16 +24,57 @@ class YoutubeAPI:
         })
 
 
+    def _extract_json_object(self, text: str, start_marker: str) -> dict:
+        """Extract a JSON object from text by finding balanced braces."""
+        start_idx = text.find(start_marker)
+        if start_idx == -1:
+            raise ValueError(f"Marker '{start_marker}' not found in text")
+        
+        # Find the opening brace after the marker
+        json_start = text.find('{', start_idx)
+        if json_start == -1:
+            raise ValueError("No JSON object found after marker")
+        
+        # Count braces to find the complete JSON object
+        brace_count = 0
+        in_string = False
+        escape_next = False
+        
+        for i, char in enumerate(text[json_start:], start=json_start):
+            if escape_next:
+                escape_next = False
+                continue
+            if char == '\\' and in_string:
+                escape_next = True
+                continue
+            if char == '"' and not escape_next:
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if char == '{':
+                brace_count += 1
+            elif char == '}':
+                brace_count -= 1
+                if brace_count == 0:
+                    json_str = text[json_start:i + 1]
+                    return json.loads(json_str)
+        
+        raise ValueError("Unbalanced braces in JSON object")
+
+
     def get_episode_metadata(self, url: str) -> list[YoutubeDownloadItem]:
         try:
             html_response = self.session.get(url, stream=True)
             verify_response(html_response)
 
-            extractor_patterns = [
-                {"key": "ytInitialPlayerResponse", "pattern": r'<script nonce="[^"]+">var ytInitialPlayerResponse = ({.*?});<\/script>'},
-            ]
-
-            extracted_data = match_patterns(html_response.text, extractor_patterns)
+            # Extract ytInitialPlayerResponse using balanced brace matching
+            player_response = self._extract_json_object(
+                html_response.text, 
+                'var ytInitialPlayerResponse'
+            )
+            
+            extracted_data = {"ytInitialPlayerResponse": player_response}
 
             episode_info = {
                 "episode": {
